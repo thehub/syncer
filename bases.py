@@ -1,4 +1,4 @@
-import cPickle, datetime, os, threading, time, random, urllib, urllib2, cookielib
+import cPickle, datetime, threading, time, urllib, urllib2, cookielib
 from Queue import Queue
 
 import twill
@@ -8,64 +8,12 @@ import errors, config, utils
 
 picklables = (int, str, dict, tuple, list, Exception, float, long, set)
 
-class PList(list):
-    def __init__(self, path):
-        self.path = path
-        list.__init__(self)
-        self.load()
-    def dump(self):
-        file(self.path, 'w').write(cPickle.dumps(list(self), cPickle.HIGHEST_PROTOCOL))
-    def load(self):
-        if os.path.exists(self.path):
-            data = cPickle.load(file(self.path))
-            for x in data:
-                self.put(x)
-    def put(self, what):
-        self.append(what)
-    def hasBacklog(self, appname):
-        for tr in self:
-            if appname in tr and 'replay_info' in tr[appname]:
-                return True
-        return False
-
 class SubscriberBase(object):
     def __init__(self, name):
         self.name = name.replace(" ", "_")
         self.current_tasks = dict()
         all_subscribers[name] = self
         self.trusted = False
-
-class App(SubscriberBase):
-    def onUserChange(self, *args, **kw):
-        #raise NotImplemented
-        return self.name, "onUserChange"
-    onUserChange.block = True
-
-class App2(SubscriberBase):
-    def onUserChange(self, *args, **kw):
-        #errors.raiseError(errors.app_conn_failed, app_name = self.name)
-        time.sleep(3)
-        return 123
-    onUserChange.block = True
-
-class App3(SubscriberBase):
-    def onUserChange(self, *args, **kw):
-        time.sleep(3)
-        #raise NotImplemented
-    onUserChange.block = False
-
-class App4(SubscriberBase):
-    def onUserChange(self, *args, **kw):
-        time.sleep(2)
-        context = utils.getContext()
-        to_fail = random.choice((0,1))
-        if to_fail or 1:
-            print self.name, 'decides to fail'
-            raise NotImplemented
-        return "a small gift"
-    onUserChange.block = False
-    onUserChange.attempts = 2
-    onUserChange.attempt_interval = 2
 
 class WebApp(SubscriberBase):
     def __init__(self, domainname, *args, **kw):
@@ -172,15 +120,12 @@ class Event(object):
                             logger.warn("Unpicklable exception: %s" % str(err))
                         retcode = (errors.app_write_failed, dict(appname=subscriber.name))
                         results[subscriber.name] = dict(appname = subscriber.name, retcode = retcode, result = err)
-                        print '========================='
-                        print results
-                        print '========================='
                         break
                     else:
                         print "before attempt #%d sleeping for 2 secs" % (attempt + 1)
                         time.sleep(getattr(f, 'attempt_interval', 2))
         finally:
-            print "marking %s task over" % subscriber.name
+            print "marking %s task over\n" % subscriber.name
             th_q.get()
             th_q.task_done()
 

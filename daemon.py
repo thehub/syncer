@@ -7,7 +7,7 @@ import subscribers
 utils.setupDirs()
 utils.setupLogging()
 
-trdb = PList(os.path.join(config.datadir, "trdb"))
+trdb = utils.PList(os.path.join(config.datadir, "trdb"))
 utils.pushToBuiltins("trdb", trdb)
 utils.pushToBuiltins("all_subscribers", dict ())
 

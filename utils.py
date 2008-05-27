@@ -1,4 +1,4 @@
-import os, sys, copy
+import os, sys, copy, cPickle
 import logging.handlers
 
 import config
@@ -44,3 +44,23 @@ def getContext(frange=xrange(1,5)):
         if not eventname == None:
             break
     return Context(frame.f_locals)
+
+class PList(list):
+    def __init__(self, path):
+        self.path = path
+        list.__init__(self)
+        self.load()
+    def dump(self):
+        file(self.path, 'w').write(cPickle.dumps(list(self), cPickle.HIGHEST_PROTOCOL))
+    def load(self):
+        if os.path.exists(self.path):
+            data = cPickle.load(file(self.path))
+            for x in data:
+                self.put(x)
+    def put(self, what):
+        self.append(what)
+    def hasBacklog(self, appname):
+        for tr in self:
+            if appname in tr and 'replay_info' in tr[appname]:
+                return True
+        return False
