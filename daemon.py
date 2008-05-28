@@ -1,3 +1,5 @@
+import os
+
 import Pyro
 
 import utils
