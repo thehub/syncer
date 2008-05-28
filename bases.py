@@ -1,4 +1,4 @@
-import cPickle, datetime, threading, time, urllib, urllib2, cookielib
+import os, cPickle, datetime, threading, time, urllib, urllib2, cookielib
 from Queue import Queue
 
 import twill
@@ -98,7 +98,7 @@ class Event(object):
             self.subscribers.remove(subscriber)
 
     def genVisitId(self):
-        return str(datetime.datetime.now())
+        return os.urandom(21).encode('hex')
         
     def runHandler(self, f, cred, args, kw, subscriber, results, th_q):
         attempts = getattr(f, 'attempts', 2)
@@ -155,6 +155,8 @@ class Event(object):
 
         if not cred:
             cred = self.genVisitId()
+            while cred in sessions:
+                cred = self.genVisitId()
         for subscriber in self.subscribers_s:
             if not app_name == subscriber.name:
                 self.runInThread(cred, subscriber, args, kw, results, th_q, True)

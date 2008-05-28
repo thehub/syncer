@@ -8,7 +8,7 @@ import errors, config
 class SyncerClient(object):
     def __init__(self, appname, authtokengetter):
         self.appname = appname
-        self._authtokengetter
+        self._authtokengetter = authtokengetter
 
     def publishEvent(self, eventname, syncertoken, *args, **kw):
         syncer = Pyro.core.getProxyForURI(config.syncer_uri)
@@ -28,4 +28,4 @@ class SyncerClient(object):
         return self._authtokengetter()
 
     def __getattr__(self, eventname):
-        return functools.partial(self.publishEvent, eventname, authtokengetter())
+        return functools.partial(self.publishEvent, eventname, self._authtokengetter())
