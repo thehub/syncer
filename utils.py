@@ -21,8 +21,10 @@ def setupLogging():
     logger.setLevel(logging.INFO)
 
     if config.__syncerdebug__:
+        formatter = logging.Formatter('%(levelname)-8s: %(funcName)s: %(message)s')
         logger.setLevel(logging.DEBUG)
         console = logging.StreamHandler()
+        console.setFormatter(formatter)
         console.setLevel(logging.DEBUG)
         logger.addHandler(console)
 
@@ -37,10 +39,11 @@ def setupDirs():
     for path in (datadir, logdir):
         if not os.path.exists(path): os.makedirs(path)
     
-def getContext(frange=xrange(1,5)):
+def getContext(frange=xrange(1,7)):
     for depth in frange:
         frame = sys._getframe(depth)
         eventname = frame.f_locals.get('eventname', None)
+        #print "search: %s %s" % (frame.f_code.co_name, str([k for k in frame.f_locals]))
         if not eventname == None:
             break
     return Context(frame.f_locals)

@@ -1,4 +1,6 @@
-import bases, utils, errors
+import datetime
+
+import bases, utils, errors, config
 
 class SessionKeeper(dict, bases.SubscriberBase):
 
@@ -21,23 +23,45 @@ class SessionKeeper(dict, bases.SubscriberBase):
             return True
         return False
 
+    def destroySession(self, sid):
+        del self[sid]
+
     def _onSignon(self, u, p):
         if not self.authenticate(u, p):
             errors.raiseError(errors.authfailure)
 
+    def rollback(self, *args, **kw):
+        print self
+        context = utils.getContext()
+        if context.eventname == "onSignon":
+            del self[context.cred]
+        print self
+        
     def onAnyEvent(self, *args, **kw):
         context = utils.getContext()
         if context.eventname == "onSignon":
+            self.removeStaleSessions()
             ret = self._onSignon(*args[:2])
-            self[context.cred] = dict (cred = context.cred)
+            newsession = dict (cred = context.cred)
+            newsession['last_seen'] = datetime.datetime.now()
+            self[context.cred] = newsession
             return context.cred
         else:
             if not self.validate(context.cred):
                 errors.raiseError(errors.authfailure)
+    onAnyEvent.rollback = rollback
 
     def getCurrentSession(self):
         context = utils.getContext()
         return self[context.cred]
+
+    def removeStaleSessions(self):
+        now = datetime.datetime.now()
+        for (sid, session) in self.items():
+            delta = now - session['last_seen']
+            if delta > config.session_idletimeout:
+                del self[sid]
+            logger.info("session %s destroyed" % sid)
 
     current = property(getCurrentSession)
 

@@ -125,7 +125,6 @@ class Event(object):
                         print "before attempt #%d sleeping for 2 secs" % (attempt + 1)
                         time.sleep(getattr(f, 'attempt_interval', 2))
         finally:
-            print "marking %s task over\n" % subscriber.name
             th_q.get()
             th_q.task_done()
 
@@ -141,7 +140,7 @@ class Event(object):
             th_q.put(subscriber.name)
             if block:
                 th.run()
-                logger.info("%s %s: done" % (subscriber.name, self.name))
+                logger.info("%s %s: done\n" % (subscriber.name, self.name))
             else:
                 th.start()
 
@@ -157,6 +156,7 @@ class Event(object):
             cred = self.genVisitId()
             while cred in sessions:
                 cred = self.genVisitId()
+
         for subscriber in self.subscribers_s:
             if not app_name == subscriber.name:
                 self.runInThread(cred, subscriber, args, kw, results, th_q, True)
@@ -167,16 +167,35 @@ class Event(object):
             for subscriber in self.subscribers:
                 if not app_name == subscriber.name:
                     self.runInThread(cred, subscriber, args, kw, results, th_q)
+
         if self.join:
             print "I'm asked to wait"
             th_q.join()
-            print th_q.queue
             print "My wait is over"
+            __failed = bool (__failed or errors.hasFailed(results))
+            self.onFailure(__failed, th_q, results, cred, args, kw)
         else:
-            def dumpresults(th_q, results):
-                th_q.join()
-                if __failed or errors.hasFailed(results):
-                    trdb.put(results)
-                trdb.dump()
-            threading.Thread(target=dumpresults, args=(th_q, results)).start()
+            __failed = bool (__failed or errors.hasFailed(results))
+            threading.Thread(target=self.onFailure, args=(__failed, th_q, results, cred, args, kw)).start()
+
         return results
+
+    def onFailure(self, is_failed, th_q, results, cred, args, kw):
+        th_q.join()
+
+        eventname = self.name
+        if is_failed:
+            trdb.put(results)
+            trdb.dump()
+            rollback_candidates = [subscriber for subscriber in self.subscribers_s + self.subscribers if subscriber.name in results]
+            
+            logger.debug("Begin rollback")
+            for subscriber in rollback_candidates:
+                f = getattr(subscriber, eventname, getattr(subscriber, "onAnyEvent", None))
+                rollback = getattr(f, "rollback", None)
+                if rollback:
+                    logger.debug("ateempting rollback for %s" % subscriber.name)
+                    try:
+                        rollback(subscriber, *args, **kw)
+                    except Exception, err:
+                        logger.error("Rollback failed for %s:%s (%s)" % (subscriber.name, eventname, err))
