@@ -26,7 +26,7 @@ class SessionKeeper(dict, bases.SubscriberBase):
     def destroySession(self, sid):
         del self[sid]
 
-    def _onSignon(self, u, p):
+    def _onSignon(self, u, p, cookies):
         if not self.authenticate(u, p):
             errors.raiseError(errors.authfailure)
 
@@ -41,15 +41,22 @@ class SessionKeeper(dict, bases.SubscriberBase):
         context = utils.getContext()
         if context.eventname == "onSignon":
             self.removeStaleSessions()
-            ret = self._onSignon(*args[:2])
+            ret = self._onSignon(*args[:3])
             newsession = dict (cred = context.cred)
             newsession['last_seen'] = datetime.datetime.now()
             self[context.cred] = newsession
             return context.cred
         else:
             if not self.validate(context.cred):
-                errors.raiseError(errors.authfailure)
+                errors.raiseError(errors.sessionnotfound)
     onAnyEvent.rollback = rollback
+
+    def onReceiveApptoken(self, appname, apptoken):
+        session = self.current
+        if 'apptokens' not in session:
+            session['apptokens'] = {appname: apptoken}
+        else:
+            session['apptokens'][appname] = apptoken
 
     def getCurrentSession(self):
         context = utils.getContext()
@@ -61,7 +68,7 @@ class SessionKeeper(dict, bases.SubscriberBase):
             delta = now - session['last_seen']
             if delta > config.session_idletimeout:
                 del self[sid]
-            logger.info("session %s destroyed" % sid)
+                logger.info("session %s destroyed" % sid)
 
     current = property(getCurrentSession)
 

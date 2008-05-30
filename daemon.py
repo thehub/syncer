@@ -14,7 +14,8 @@ utils.pushToBuiltins("trdb", trdb)
 utils.pushToBuiltins("all_subscribers", dict ())
 
 syncer = Syncer()
-utils.pushToBuiltins("sessions", subscribers.sessions.SessionKeeper("sessionkeeper"))
+sessionkeeper = subscribers.sessions.SessionKeeper("sessionkeeper")
+utils.pushToBuiltins("sessions", sessionkeeper)
 
 #hubspace = subscribers.hubspace.HubSpace("members.the-hub.net", "hubspace")
 hubspace = subscribers.hubspace.HubSpace("localhost:8080", "hubspace")
@@ -23,6 +24,8 @@ ldapwriter = subscribers.ldapwriter.LDAPWriter("ldapwriter")
 syncer.onSignon.addSubscriber(ldapwriter)
 syncer.onSignon.addSubscriber(hubspace)
 syncer.onSignon.join = True
+
+syncer.onReceiveApptoken.addSubscriber(sessionkeeper)
 
 event = syncer.onUserChange
 syncer.onUserChange.addSubscriber(hubspace)

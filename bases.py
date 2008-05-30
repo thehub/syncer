@@ -27,11 +27,16 @@ class WebApp(SubscriberBase):
         raise NotImplemented
 
     def makeHttpReq(self, url, formvars):
-        cj = sessions.current['authcookies'][self.name]
+        session = sessions.current
+        cj = session['authcookies'][self.name]
         params = urllib.urlencode(formvars)
         opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
-        opener.addheaders = [("Content-type", "application/x-www-form-urlencoded"), ("Accept", "text/plain")]# ('Cookie', cookie_hdr)]
-        logger.debug("Opening URL: %s" % url)
+        user_agent = config.user_agent
+        if 'apptokens' in session:
+            user_agent = session['apptokens'].get(self.name, user_agent)
+        opener.addheaders = [("Content-type", "application/x-www-form-urlencoded"),
+            ("Accept", "text/plain"), ("user-agent", user_agent)]
+        logger.debug("Opening URL: %s (%s)" % (url, user_agent))
         logger.debug("Headers sent: %s" % opener.addheaders)
         r = opener.open(url, params)
         content = r.read()
@@ -42,8 +47,13 @@ class WebApp(SubscriberBase):
                                  # enable caller function perform addition to make a single list
         
     def readForm(self, url):
-        cj = sessions.current['authcookies'][self.name]
+        session = sessions.current
+        cj = session['authcookies'][self.name]
+        user_agent = config.user_agent
+        if 'apptokens' in session:
+            user_agent = session['apptokens'].get(self.name, user_agent)
         b = twill.get_browser()
+        b.set_agent_string(user_agent)
         for c in cj:
             b.cj.set_cookie(c)
         b.go(url)
@@ -178,6 +188,10 @@ class Event(object):
             __failed = bool (__failed or errors.hasFailed(results))
             threading.Thread(target=self.onFailure, args=(__failed, th_q, results, cred, args, kw)).start()
 
+        print '========================================'
+        print results
+        print sessions.keys()
+        print '========================================'
         return results
 
     def onFailure(self, is_failed, th_q, results, cred, args, kw):

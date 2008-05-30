@@ -27,7 +27,7 @@ class HubSpace(bases.WebApp):
         authcookies = self.makeHttpReq(login_url, formvars)[0]
         sessions.current['authcookies'][self.name] = authcookies
 
-        save_url = "http://%s/savesyncertoken" % self.domainname
+        save_url = "http://%s/exchangeTokens" % self.domainname
         formvars = dict(syncertoken = sessions.current["cred"])
         self.makeHttpReq(save_url, formvars)
 
@@ -36,8 +36,6 @@ class HubSpace(bases.WebApp):
     onSignon.block = True
 
     def onUserChange(self, username, u_data):
-        sync_url = "http://%s/hello" % self.domainname
-        
         usermod_url = "http://%s/get_widget?widget_name=memberProfileEdit&object_type=User&object_id=%s" % (self.domainname, username)
         d = self.readForm(usermod_url)
 

@@ -6,6 +6,7 @@ default_err_tmpl = "Syncer error#$intcode"
 
 success = (0, "Success")
 authfailure = (1, "Authentication failed")
+sessionnotfound = (2, "Expired Or Invalid Session")
 syncer_conn_failed = (3, "Syncer connection failed")
 app_conn_failed = (5, "$appname connection failed")
 app_write_failed = (7, "$appname modification failed")
