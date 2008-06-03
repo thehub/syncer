@@ -16,7 +16,6 @@ h = hashlib.sha1("hubplus")
 h.update(file("/proc/cpuinfo").read())
 apptoken = h.hexdigest()
 
-
 class SyncerClient(object):
     def __init__(self, appname, sessiongetter):
         self.appname = appname
@@ -25,8 +24,14 @@ class SyncerClient(object):
     def getSyncerToken(self):
         return self.sessiongetter().get('syncertoken', None)
 
-    def setSyncerToken(self, token):
-        self.sessiongetter()['syncertoken'] = token
+    def setSyncerToken(self, syncertoken):
+        self.sessiongetter()['syncertoken'] = syncertoken
+
+    def isSyncerRequest(self, user_agent):
+        return user_agent == config.user_agent
+
+    def exchangeTokens(self):
+        return self.onReceiveApptoken(self.appname, apptoken)
 
     def publishEvent(self, eventname, syncertoken, *args, **kw):
         syncer = Pyro.core.getProxyForURI(config.syncer_uri)
@@ -42,8 +47,8 @@ class SyncerClient(object):
     def isSuccessful(self, result):
         return not errors.hasFailed(result)
 
-    def sendApptoken(self):
-        return self.onReceiveApptoken(self.appname, apptoken)
+    def convertCookie(self, what):
+        return utils.convertCookie(what)
 
     def __getattr__(self, eventname):
         return functools.partial(self.publishEvent, eventname, self.getSyncerToken())

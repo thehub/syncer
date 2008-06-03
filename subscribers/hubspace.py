@@ -17,7 +17,7 @@ class HubSpace(bases.WebApp):
             login = "Login" )
         
     def onSignon(self, u, p, cookies):
-        login_url = "http://%s/sync/onSignon" % self.domainname
+        login_url = "http://%s/login" % self.domainname
         cj = cookielib.CookieJar()
         for c in cookies:
             cj.set_cookie(c)
@@ -27,13 +27,9 @@ class HubSpace(bases.WebApp):
         authcookies = self.makeHttpReq(login_url, formvars)[0]
         sessions.current['authcookies'][self.name] = authcookies
 
-        save_url = "http://%s/exchangeTokens" % self.domainname
-        formvars = dict(syncertoken = sessions.current["cred"])
-        self.makeHttpReq(save_url, formvars)
-
         return True
 
-    onSignon.block = True
+    onSignon.block = False
 
     def onUserChange(self, username, u_data):
         usermod_url = "http://%s/get_widget?widget_name=memberProfileEdit&object_type=User&object_id=%s" % (self.domainname, username)

@@ -19,16 +19,19 @@ utils.pushToBuiltins("sessions", sessionkeeper)
 
 #hubspace = subscribers.hubspace.HubSpace("members.the-hub.net", "hubspace")
 hubspace = subscribers.hubspace.HubSpace("localhost:8080", "hubspace")
+hubspace2 = subscribers.hubspace.HubSpace("localhost:8081", "hubspace2")
 ldapwriter = subscribers.ldapwriter.LDAPWriter("ldapwriter")
 
 syncer.onSignon.addSubscriber(ldapwriter)
+syncer.onSignon.addSubscriber(hubspace2)
 syncer.onSignon.addSubscriber(hubspace)
-syncer.onSignon.join = True
+syncer.onSignon.join = False
 
-syncer.onReceiveApptoken.addSubscriber(sessionkeeper)
+syncer.onReceiveAuthcookies.join = True
 
 event = syncer.onUserChange
 syncer.onUserChange.addSubscriber(hubspace)
+syncer.onUserChange.addSubscriber(hubspace2)
 syncer.onUserChange.join = True
 
 Pyro.core.initServer()

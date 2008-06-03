@@ -1,4 +1,4 @@
-import os, cPickle, datetime, threading, time, urllib, urllib2, cookielib
+import os, cPickle, datetime, threading, time, urllib, urllib2, cookielib, traceback
 from Queue import Queue
 
 import twill
@@ -13,7 +13,6 @@ class SubscriberBase(object):
         self.name = name.replace(" ", "_")
         self.current_tasks = dict()
         all_subscribers[name] = self
-        self.trusted = False
 
 class WebApp(SubscriberBase):
     def __init__(self, domainname, *args, **kw):
@@ -26,34 +25,37 @@ class WebApp(SubscriberBase):
     def onSignon(self, u, p):
         raise NotImplemented
 
+    def onReceiveAuthcookies(self, appname, cookies):
+        if appname == self.name:
+            session = sessions.current
+            if 'authcookies' not in session:
+                session['authcookies'] = {appname: cookies}
+            else:
+                session['authcookies'][appname] = cookies
+            return True
+
+    onReceiveAuthcookies.block = True
+
     def makeHttpReq(self, url, formvars):
         session = sessions.current
         cj = session['authcookies'][self.name]
         params = urllib.urlencode(formvars)
         opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
-        user_agent = config.user_agent
-        if 'apptokens' in session:
-            user_agent = session['apptokens'].get(self.name, user_agent)
         opener.addheaders = [("Content-type", "application/x-www-form-urlencoded"),
-            ("Accept", "text/plain"), ("user-agent", user_agent)]
-        logger.debug("Opening URL: %s (%s)" % (url, user_agent))
+            ("Accept", "text/plain"), ("user-agent", config.user_agent)]
+        logger.debug("Opening URL: %s (%s)" % (url, config.user_agent))
         logger.debug("Headers sent: %s" % opener.addheaders)
         r = opener.open(url, params)
         content = r.read()
         r.close()
         logger.debug("authenticate req code: %s" % r.code)
-        return cj, content # If there are more than one name/value pairs we want a list to
-        return list(cj), content # If there are more than one name/value pairs we want a list to
-                                 # enable caller function perform addition to make a single list
-        
+        return cj, content
+
     def readForm(self, url):
         session = sessions.current
         cj = session['authcookies'][self.name]
-        user_agent = config.user_agent
-        if 'apptokens' in session:
-            user_agent = session['apptokens'].get(self.name, user_agent)
         b = twill.get_browser()
-        b.set_agent_string(user_agent)
+        b.set_agent_string(config.user_agent)
         for c in cj:
             b.cj.set_cookie(c)
         b.go(url)
@@ -123,6 +125,12 @@ class Event(object):
                     break
                 except Exception, err:
                     #raise
+                    print '================'
+                    try:
+                        traceback.print_exc(err)
+                    except Exception, err:
+                        print err
+                    print '================'
                     logger.error("%s %s #%d: failed with error (%s)" % (subscriber.name, self.name, attempt, str(err)))
                     if is_last_attempt:
                         if not type(err) in picklables:

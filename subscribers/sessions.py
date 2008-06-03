@@ -31,11 +31,9 @@ class SessionKeeper(dict, bases.SubscriberBase):
             errors.raiseError(errors.authfailure)
 
     def rollback(self, *args, **kw):
-        print self
         context = utils.getContext()
         if context.eventname == "onSignon":
             del self[context.cred]
-        print self
         
     def onAnyEvent(self, *args, **kw):
         context = utils.getContext()
@@ -50,13 +48,14 @@ class SessionKeeper(dict, bases.SubscriberBase):
             if not self.validate(context.cred):
                 errors.raiseError(errors.sessionnotfound)
     onAnyEvent.rollback = rollback
+    onAnyEvent.block = True
 
-    def onReceiveApptoken(self, appname, apptoken):
+    def onReceiveAuthcookies(self, appname, cookies):
+        cj = utils.create_cookiejar(cookies)
         session = self.current
-        if 'apptokens' not in session:
-            session['apptokens'] = {appname: apptoken}
-        else:
-            session['apptokens'][appname] = apptoken
+        if not 'authcookies' in session:
+            session['authcookies'] = dict()
+        self.current['authcookies'][appname] = cj
 
     def getCurrentSession(self):
         context = utils.getContext()

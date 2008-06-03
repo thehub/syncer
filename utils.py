@@ -1,5 +1,8 @@
 import os, sys, copy, cPickle
 import logging.handlers
+import cookielib
+import Cookie
+import time
 
 import config
 
@@ -67,3 +70,101 @@ class PList(list):
             if appname in tr and 'replay_info' in tr[appname]:
                 return True
         return False
+
+
+# Inspiration => http://docs.turbogears.org/1.0/ConvertCookies
+
+attrs = 'expires', 'path', 'comment', 'domain', 'secure', 'version'
+attr_defaults = dict (expires = None, path = None, comment = None, domain = "", secure = None, version = None)
+
+def create_cookies(simple_cookie):
+    cookies = []
+    attrs_d = dict ()
+    for (cname, morsel) in simple_cookie.items():
+        name = cname
+        value = morsel.value
+        for k in attrs:
+            v = morsel.get(k, None)
+            if isinstance(v, str): v = v.strip()
+            if not v: v = attr_defaults[k]
+            attrs_d[k] = v
+        c = cookielib.Cookie(attrs_d['version'], name, value, None, None, attrs_d['domain'], None, None,
+                        attrs_d['path'], None, "", attrs_d['expires'], "", attrs_d['comment'], None, None)
+        cookies.append(c)
+    return cookies
+
+def create_cookiejar(simple_cookie):
+    cj = cookielib.CookieJar()
+    for c in create_cookies(simple_cookie):
+        cj.set_cookie(c)
+    return cj
+
+def create_simple_cookie(cookiejar):
+    "Returns a Cookie.SimpleCookie based on cookielib.CookieJar."
+    sc = Cookie.SimpleCookie()
+    # Doesn't look like Cookie.SimpleCookie allows for nonstandard attributes, so
+    # we only deal with the standard ones.
+    for path_dict in cookiejar._cookies.values(): #iterate through paths
+        for cookie_dict in path_dict.values():
+            for name, cookie in cookie_dict.items():
+                sc[name] = cookie.value
+                for attr in attrs:
+                    if getattr(cookie, attr):
+                        if attr == 'expires':
+                            # Cookies thinks an int expires x seconds in future,
+                            # cookielib thinks it is x seconds from epoch,
+                            # so doing the conversion to string for Cookies
+                            fmt = '%a, %d %b %Y %H:%M:%S GMT'
+                            sc[name]['expires'] = time.strftime(fmt,
+                                                    time.gmtime(cookie.expires))
+                        else:
+                            sc[name][attr] = getattr(cookie, attr)
+    return sc
+
+def convertCookie(what):
+    if isinstance(what, cookielib.CookieJar):
+        return create_simple_cookie(what)
+    else:
+        return create_cookies(what)
+
+def uniq(l):
+    l.sort()
+    current = l[0]
+    ul = [current]
+    for next in l:
+        if next == current: continue
+        ul.append(next)
+        if l: current = next
+        else: ul.append(next)
+    return ul
+
+def mergeSimplecookies(*scs):
+    m = Cookie.SimpleCookie()
+    for sc in scs:
+        m.update(sc)
+    return m
+
+
+if __name__ == '__main__':
+    sc = Cookie.SimpleCookie()
+    sc['name'] = 'shon'
+    sc['name']['expires'] = '0'
+    sc['name']['domain'] = 'foo.net'
+    sc['name']['path'] = '/testapp'
+
+    sc1 = Cookie.SimpleCookie()
+    sc1['letters'] = 'abc'
+    sc1['letters']['expires'] = '100'
+    sc1['letters']['domain'] = 'foo.net'
+    sc1['letters']['path'] = '/testapp'
+
+    sc = mergeSimplecookies(sc, sc1)
+
+    cl = create_cookies(sc)
+    cj = create_cookiejar(sc)
+
+    sc = create_simple_cookie(cj)
+
+
+    l = [56, 34, 56, 72, 3, 0, 98, 12, 56, 3]
+    ul = uniq(l)

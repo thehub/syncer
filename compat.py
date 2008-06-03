@@ -1,3 +1,7 @@
+"""
+Place mainly for making newer Python features available for older versions.
+"""
+
 class partial(object):
     def __init__(self, func, *args, **kw):
         self.func = func
