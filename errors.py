@@ -18,28 +18,37 @@ def raiseError(err_tuple, **errdata):
 def getError(err_tuple, **errdata):
     return Exception(err_tuple, errdata)
 
+def getClientError(err_tuple, **errdata):
+    d = dict (appname = 'syncerclient')
+    d['retcode'] = err_tuple
+    d['result'] = getError(err_tuple, **errdata)
+    return dict (clienterror = d)
+
+def isError(status):
+    try:
+        if status['retcode'] != success:
+            return True
+    except:
+        return True
+
 def hasFailed(result):
     if isinstance(result, Exception):
         return True
     for handler_res in result.values():
-        try:
-            if handler_res['retcode'][0] != success:
-                return True
-        except:
+        if isError(handler_res):
             return True
     return False
 
 def err2str(err):
-    print err
     if isinstance(err, Exception):
         print '============================='
         print ''.join(Pyro.util.getPyroTraceback(err))
         print '============================='
         return "Remote eception"
-    err_tuple, errdata = err['retcode']
-    errdata.update(intcode=err_tuple[0])
+    err_tuple = err['retcode']
+    err.update(intcode=err_tuple[0])
     try:
         template = err_tuple[1]
     except IndexError:
         template = default_err_tmpl
-    return "%-12s %s" % ("(%s)" % err['appname'], Template(template).safe_substitute(errdata))
+    return "%-12s %s" % ("(%s)" % err['appname'], Template(template).safe_substitute(err))

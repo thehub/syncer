@@ -7,14 +7,14 @@ import time
 import config
 
 class Context(object):
-    _context_keys = ('results', 'cred', 'eventname')
-    def __init__(self, d):
-        for k in self._context_keys:
-            setattr(self, k, copy.deepcopy(d[k]))
+    def __init__(self, results, cred, eventname):
+        self.results = results
+        self.cred = cred
+        self.eventname = eventname
     def __str__(self):
-        return '\n'.join(("%-10s:%s" % (k, getattr(self, k, None)) for k in self._context_keys))
+        return '\n'.join(("%-10s:%s" % (k, getattr(self, k)) for k in self.__dict__ if k[0] is not '_'))
     def __repr__(self):
-        return '\n'.join(("%-10s:%s" % (k, getattr(self, k, None)) for k in self._context_keys))
+        return '\n'.join(("%-10s:%s" % (k, getattr(self, k)) for k in self.__dict__ if k[0] is not '_'))
     
 def pushToBuiltins(name, val):
     __builtins__[name] = val
@@ -45,11 +45,9 @@ def setupDirs():
 def getContext(frange=xrange(1,7)):
     for depth in frange:
         frame = sys._getframe(depth)
-        eventname = frame.f_locals.get('eventname', None)
+        context = frame.f_locals.get('context', None)
         #print "search: %s %s" % (frame.f_code.co_name, str([k for k in frame.f_locals]))
-        if not eventname == None:
-            break
-    return Context(frame.f_locals)
+        if context: return context
 
 class PList(list):
     def __init__(self, path):
@@ -58,6 +56,7 @@ class PList(list):
         self.load()
     def dump(self):
         file(self.path, 'w').write(cPickle.dumps(list(self), cPickle.HIGHEST_PROTOCOL))
+        return True
     def load(self):
         if os.path.exists(self.path):
             data = cPickle.load(file(self.path))
@@ -65,9 +64,10 @@ class PList(list):
                 self.put(x)
     def put(self, what):
         self.append(what)
+        return True
     def hasBacklog(self, appname):
         for tr in self:
-            if appname in tr and 'replay_info' in tr[appname]:
+            if appname in tr[-1]:
                 return True
         return False
 
@@ -144,6 +144,13 @@ def mergeSimplecookies(*scs):
         m.update(sc)
     return m
 
+class Masked(object):
+    def __init__(self, argname="password"):
+        self.argname = argname
+    def __str__(self):
+        return "<%s>" % self.argname
+    def __repr__(self):
+        return "<%s>" % self.argname
 
 if __name__ == '__main__':
     sc = Cookie.SimpleCookie()

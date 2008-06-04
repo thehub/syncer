@@ -19,19 +19,21 @@ utils.pushToBuiltins("sessions", sessionkeeper)
 
 #hubspace = subscribers.hubspace.HubSpace("members.the-hub.net", "hubspace")
 hubspace = subscribers.hubspace.HubSpace("localhost:8080", "hubspace")
-hubspace2 = subscribers.hubspace.HubSpace("localhost:8081", "hubspace2")
+#hubspace2 = subscribers.hubspace.HubSpace("localhost:8081", "hubspace2")
 ldapwriter = subscribers.ldapwriter.LDAPWriter("ldapwriter")
 
 syncer.onSignon.addSubscriber(ldapwriter)
-syncer.onSignon.addSubscriber(hubspace2)
+#syncer.onSignon.addSubscriber(hubspace2)
 syncer.onSignon.addSubscriber(hubspace)
+syncer.onSignon.addArgsFilter(lambda args, kw: ((args[0], utils.Masked(), utils.Masked("cookies")), kw))
+#syncer.onSignon.ignore_trdb = True
 syncer.onSignon.join = False
 
 syncer.onReceiveAuthcookies.join = True
 
 event = syncer.onUserChange
 syncer.onUserChange.addSubscriber(hubspace)
-syncer.onUserChange.addSubscriber(hubspace2)
+#syncer.onUserChange.addSubscriber(hubspace2)
 syncer.onUserChange.join = True
 
 Pyro.core.initServer()
@@ -45,5 +47,6 @@ print 'Server started.'
 
 try:
     daemon.requestLoop()
+    pass
 except KeyboardInterrupt:
     print "^c pressed. Bye."

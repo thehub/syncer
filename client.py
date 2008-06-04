@@ -40,7 +40,7 @@ class SyncerClient(object):
         try:
             return getattr(syncer, eventname)(self.appname, self.getSyncerToken(), *args, **kw)
         except Pyro.errors.ProtocolError:
-            return errors.getError(errors.syncer_conn_failed)
+            return errors.getClientError(errors.syncer_conn_failed)
         except Exception, err:
             return err
 

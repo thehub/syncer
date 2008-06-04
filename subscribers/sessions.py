@@ -40,7 +40,7 @@ class SessionKeeper(dict, bases.SubscriberBase):
         if context.eventname == "onSignon":
             self.removeStaleSessions()
             ret = self._onSignon(*args[:3])
-            newsession = dict (cred = context.cred)
+            newsession = dict (cred = context.cred, username = "anonymous")
             newsession['last_seen'] = datetime.datetime.now()
             self[context.cred] = newsession
             return context.cred
@@ -50,12 +50,13 @@ class SessionKeeper(dict, bases.SubscriberBase):
     onAnyEvent.rollback = rollback
     onAnyEvent.block = True
 
-    def onReceiveAuthcookies(self, appname, cookies):
+    def onReceiveAuthcookies(self, appname, username, cookies):
         cj = utils.create_cookiejar(cookies)
         session = self.current
         if not 'authcookies' in session:
             session['authcookies'] = dict()
         self.current['authcookies'][appname] = cj
+        self.current['username'] = username
 
     def getCurrentSession(self):
         context = utils.getContext()

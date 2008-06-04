@@ -94,7 +94,9 @@ class Event(object):
         self.name = eventname
         self.subscribers_s = []
         self.subscribers = []
+        self.argsfilterer = lambda args, kw: (args, kw)
         self.join = config.defaults.event_join
+        self.ignore_trdb = False
 
     def addSubscriber(self, subscriber):
         handler = getattr(subscriber, self.name, getattr(subscriber, "onAnyEvent", None))
@@ -111,17 +113,18 @@ class Event(object):
 
     def genVisitId(self):
         return os.urandom(21).encode('hex')
+
+    def addArgsFilter(self, f):
+        self.argsfilterer = f
         
-    def runHandler(self, f, cred, args, kw, subscriber, results, th_q):
+    def runHandler(self, context, f, args, kw, subscriber, th_q):
         attempts = getattr(f, 'attempts', 2)
-        data = dict()
-        eventname = self.name # so that context gets it
         try:
             for attempt in range(attempts):
                 is_last_attempt = ((attempt + 1) == attempts)
                 try:
                     ret = f(*args, **kw)
-                    results[subscriber.name] = dict(appname = subscriber.name, retcode = (errors.success, {}), result = ret)
+                    context.results[subscriber.name] = dict(appname = subscriber.name, retcode = errors.success, result = ret)
                     break
                 except Exception, err:
                     #raise
@@ -137,7 +140,7 @@ class Event(object):
                             err = str(err)
                             logger.warn("Unpicklable exception: %s" % str(err))
                         retcode = (errors.app_write_failed, dict(appname=subscriber.name))
-                        results[subscriber.name] = dict(appname = subscriber.name, retcode = retcode, result = err)
+                        context.results[subscriber.name] = dict(appname = subscriber.name, retcode = retcode, result = err)
                         break
                     else:
                         print "before attempt #%d sleeping for 2 secs" % (attempt + 1)
@@ -146,15 +149,15 @@ class Event(object):
             th_q.get()
             th_q.task_done()
 
-    def runInThread(self, cred, subscriber, args, kw, results, th_q, block=False):
+    def runInThread(self, context, subscriber, args, kw, th_q, block=False):
         logger.info("%s %s: starting (block=%s)" % (subscriber.name, self.name, block))
-        if trdb.hasBacklog(subscriber.name):
+        if not self.ignore_trdb and trdb.hasBacklog(subscriber.name):
             err = errors.getError(errors.app_backlog_not_empty, appname = subscriber.name)
-            results[subscriber.name] = dict(retcode = errors.app_backlog_not_empty, appname = subscriber.name, result = err)
+            context.results[subscriber.name] = dict(retcode = errors.app_backlog_not_empty, appname = subscriber.name, result = err)
             logger.error(errors.err2str(err))
         else:
             f = getattr(subscriber, self.name, getattr(subscriber, "onAnyEvent", None))
-            th = threading.Thread(target=self.runHandler, args=(f, cred, args, kw, subscriber, results, th_q))
+            th = threading.Thread(target=self.runHandler, args=(context, f, args, kw, subscriber, th_q))
             th_q.put(subscriber.name)
             if block:
                 th.run()
@@ -175,26 +178,26 @@ class Event(object):
             while cred in sessions:
                 cred = self.genVisitId()
 
+        context = utils.Context(results, cred, self.name)
+
         for subscriber in self.subscribers_s:
             if not app_name == subscriber.name:
-                self.runInThread(cred, subscriber, args, kw, results, th_q, True)
+                self.runInThread(context, subscriber, args, kw, th_q, True)
                 if errors.hasFailed(results):
                     __failed = True
                     break
         if not __failed:
             for subscriber in self.subscribers:
                 if not app_name == subscriber.name:
-                    self.runInThread(cred, subscriber, args, kw, results, th_q)
+                    self.runInThread(context, subscriber, args, kw, th_q)
 
         if self.join:
             print "I'm asked to wait"
             th_q.join()
             print "My wait is over"
-            __failed = bool (__failed or errors.hasFailed(results))
-            self.onFailure(__failed, th_q, results, cred, args, kw)
+            self.onFailure(context, th_q, args, kw)
         else:
-            __failed = bool (__failed or errors.hasFailed(results))
-            threading.Thread(target=self.onFailure, args=(__failed, th_q, results, cred, args, kw)).start()
+            threading.Thread(target=self.onFailure, args=(context, th_q, args, kw)).start()
 
         print '========================================'
         print results
@@ -202,17 +205,22 @@ class Event(object):
         print '========================================'
         return results
 
-    def onFailure(self, is_failed, th_q, results, cred, args, kw):
+    def onFailure(self, context, th_q, args, kw):
         th_q.join()
+        results = context.results
 
-        eventname = self.name
-        if is_failed:
-            trdb.put(results)
-            trdb.dump()
+        if errors.hasFailed(results):
+            eventname = self.name
+            args, kw = self.argsfilterer(args, kw)
+            now = datetime.datetime.now()
+            failed_apps = dict ()
+            username = sessions[context.cred]['username']
+
             rollback_candidates = [subscriber for subscriber in self.subscribers_s + self.subscribers if subscriber.name in results]
-            
             logger.debug("Begin rollback")
+
             for subscriber in rollback_candidates:
+
                 f = getattr(subscriber, eventname, getattr(subscriber, "onAnyEvent", None))
                 rollback = getattr(f, "rollback", None)
                 if rollback:
@@ -221,3 +229,9 @@ class Event(object):
                         rollback(subscriber, *args, **kw)
                     except Exception, err:
                         logger.error("Rollback failed for %s:%s (%s)" % (subscriber.name, eventname, err))
+
+                if errors.isError(results[subscriber.name]):
+                    failed_apps[subscriber.name] = results[subscriber.name]
+
+            trdb.put((eventname, now, username, args, kw, failed_apps))
+            trdb.dump()
