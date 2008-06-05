@@ -20,6 +20,8 @@ class SyncerClient(object):
     def __init__(self, appname, sessiongetter):
         self.appname = appname
         self.sessiongetter = sessiongetter
+        if config.client_disabled:
+            self.publishEvent = lambda *args, **kw: errors.getClientError(errors.syncer_client_disabled)
 
     def getSyncerToken(self):
         return self.sessiongetter().get('syncertoken', None)

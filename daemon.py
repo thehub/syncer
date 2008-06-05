@@ -19,6 +19,7 @@ utils.pushToBuiltins("sessions", sessionkeeper)
 
 #hubspace = subscribers.hubspace.HubSpace("members.the-hub.net", "hubspace")
 hubspace = subscribers.hubspace.HubSpace("localhost:8080", "hubspace")
+hubspace.adminemail = "shon@localhost"
 #hubspace2 = subscribers.hubspace.HubSpace("localhost:8081", "hubspace2")
 ldapwriter = subscribers.ldapwriter.LDAPWriter("ldapwriter")
 

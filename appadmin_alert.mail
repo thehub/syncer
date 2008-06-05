@@ -1,0 +1,20 @@
+From: $sender
+
+Subject: Sync failure: $eventname
+
+To: $recipient
+
+Hello $appname Administrator,
+
+Here are the details of event failure.
+
+Time: $time
+Event: $eventname
+As User: $user
+Event input data: $args
+
+Since this application is now considered to be in inconsistent state with other applications, all
+further sync attempts would be blocked.
+
+Thank you,
+Syncer automated alert system

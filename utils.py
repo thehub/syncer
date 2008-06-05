@@ -3,6 +3,8 @@ import logging.handlers
 import cookielib
 import Cookie
 import time
+import smtplib
+import string
 
 import config
 
@@ -152,6 +154,41 @@ class Masked(object):
     def __repr__(self):
         return "<%s>" % self.argname
 
+def sendAlert(data):
+    smtpserver = 'localhost'
+    
+    sender = 'syncerdaemon@the-hub.net'
+    path = "appadmin_alert.mail"
+    locals().update(data)
+    body = string.Template(file(path).read()).safe_substitute(data)
+    
+    session = smtplib.SMTP(smtpserver)
+
+    errstr = ""
+    try:
+        smtpresult = session.sendmail(sender, [data['recipient']], body)
+    except Exception, err:
+        smtpresult = None
+        errstr = "Error sending mail to %s: %s" % (data['recipient'], str(err))
+    
+    if smtpresult:
+        for recip in smtpresult.keys():
+            errstr + "Error sending mail to %s: %s %s %s" % (recip, smtpresult[recip][0], smtpresult[recip][1], errstr)
+
+    return errstr
+
+def readConfigSafe(path):
+    import compiler
+    ast = compiler.parseFile("appadmin_alert.mail")
+    d = dict()
+    for x in ast.asList()[1].asList():
+        name = x.asList()[0].name
+        if hasattr(x.asList()[1], "value"): value = x.asList()[1].value
+        else: value = [n.value for n in x.asList()[1].nodes]
+        d[name] = value
+    return d
+
+
 if __name__ == '__main__':
     sc = Cookie.SimpleCookie()
     sc['name'] = 'shon'
@@ -171,7 +208,6 @@ if __name__ == '__main__':
     cj = create_cookiejar(sc)
 
     sc = create_simple_cookie(cj)
-
 
     l = [56, 34, 56, 72, 3, 0, 98, 12, 56, 3]
     ul = uniq(l)

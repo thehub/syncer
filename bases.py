@@ -12,6 +12,7 @@ class SubscriberBase(object):
     def __init__(self, name):
         self.name = name.replace(" ", "_")
         self.current_tasks = dict()
+        self.adminemail = config.subscriber_adminemail
         all_subscribers[name] = self
 
 class WebApp(SubscriberBase):
@@ -232,6 +233,11 @@ class Event(object):
 
                 if errors.isError(results[subscriber.name]):
                     failed_apps[subscriber.name] = results[subscriber.name]
+                    if subscriber.adminemail:
+                        recipient = subscriber.adminemail
+                        appname = subscriber.name
+                        err = utils.sendAlert(locals())
+                        if err: logger.warn(err)
 
             trdb.put((eventname, now, username, args, kw, failed_apps))
             trdb.dump()

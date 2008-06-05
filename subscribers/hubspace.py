@@ -34,6 +34,23 @@ class HubSpace(bases.WebApp):
     onSignon.block = False
     onSignon.saveargs = onSignonSaveArgs
 
+    def onUserAdd(self, username, u_data):
+        useradd_url = "http://%s/load_tab?section=addMember&object_id=1&object_type=User" % (self.domainname, username)
+        d = self.readForm(usermod_url)
+
+        save_url = "http://%s/create_user" % self.domainname
+        u_data = self.ls2as(u_data)
+        d.update(u_data)
+        d['id'] = username
+        self.makeHttpReq(save_url, d)
+        return True
+
+    def onUserDelete(self, username):
+        userdel_url = "http://%s/delete_user" % (self.domainname)
+        d = dict (username = username)
+        self.makeHttpReq(userdel_url, d)
+        return True
+       
     def onUserChange(self, username, u_data):
         usermod_url = "http://%s/get_widget?widget_name=memberProfileEdit&object_type=User&object_id=%s" % (self.domainname, username)
         d = self.readForm(usermod_url)
