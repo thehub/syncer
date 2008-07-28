@@ -1,5 +1,3 @@
-import os
-
 import Pyro
 
 import utils
@@ -9,7 +7,7 @@ import subscribers
 utils.setupDirs()
 utils.setupLogging()
 
-trdb = utils.PList(os.path.join(config.datadir, "trdb"))
+trdb = utils.PList(config.trdbpath)
 utils.pushToBuiltins("trdb", trdb)
 utils.pushToBuiltins("all_subscribers", dict ())
 

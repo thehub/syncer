@@ -6,7 +6,9 @@ __syncerdebug__ = True
 syncerroot = os.getcwd()
 datadir = os.path.join(syncerroot, "data")
 logdir = os.path.join(syncerroot, "logs")
+trdbpath = os.path.join(datadir, "trdb")
 user_agent = "syncer"
+subscriber_adminemail = ""
 
 ldap_uri = "ldap://localhost"
 ldap_basedn = "dc=the-hub,dc=net"

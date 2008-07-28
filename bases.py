@@ -1,4 +1,4 @@
-import os, cPickle, datetime, threading, time, urllib, urllib2, cookielib, traceback
+import cPickle, datetime, threading, time, urllib, urllib2, cookielib, traceback
 from Queue import Queue
 
 import twill
@@ -54,7 +54,12 @@ class WebApp(SubscriberBase):
 
     def readForm(self, url):
         session = sessions.current
-        cj = session['authcookies'][self.name]
+        authcookies = session.get('authcookies', None)
+        cj = None
+        if authcookies:
+            cj = authcookies.get(self.name, None)
+        if not cj:
+            logger.warn("could not find authcookies for %s" % self.name)
         b = twill.get_browser()
         b.set_agent_string(config.user_agent)
         for c in cj:
@@ -111,9 +116,6 @@ class Event(object):
             self.subscribers_s.remove(subscriber)
         while subscriber in self.subscribers:
             self.subscribers.remove(subscriber)
-
-    def genVisitId(self):
-        return os.urandom(21).encode('hex')
 
     def addArgsFilter(self, f):
         self.argsfilterer = f
@@ -175,6 +177,8 @@ class Event(object):
         __failed = False
 
         if not cred:
+            cred = sessions.genVisitId(self.name, args, kw)
+        if not cred:
             cred = self.genVisitId()
             while cred in sessions:
                 cred = self.genVisitId()
@@ -182,11 +186,11 @@ class Event(object):
         context = utils.Context(results, cred, self.name)
 
         for subscriber in self.subscribers_s:
-            if not app_name == subscriber.name:
-                self.runInThread(context, subscriber, args, kw, th_q, True)
-                if errors.hasFailed(results):
-                    __failed = True
-                    break
+            if app_name == subscriber.name: continue
+            self.runInThread(context, subscriber, args, kw, th_q, True)
+            if errors.hasFailed(results):
+                __failed = True
+                break
         if not __failed:
             for subscriber in self.subscribers:
                 if not app_name == subscriber.name:
@@ -201,8 +205,8 @@ class Event(object):
             threading.Thread(target=self.onFailure, args=(context, th_q, args, kw)).start()
 
         print '========================================'
-        print results
-        print sessions.keys()
+        for (sid, session) in sessions.items():
+            print sid, session['username']
         print '========================================'
         return results
 

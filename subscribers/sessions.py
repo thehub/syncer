@@ -1,4 +1,4 @@
-import datetime
+import datetime, os
 
 import bases, utils, errors, config
 
@@ -19,9 +19,7 @@ class SessionKeeper(dict, bases.SubscriberBase):
         return True
 
     def validate(self, sid):
-        if sid and sid in self:
-            return True
-        return False
+        return bool(sid) and sid in self
 
     def destroySession(self, sid):
         del self[sid]
@@ -37,18 +35,34 @@ class SessionKeeper(dict, bases.SubscriberBase):
         
     def onAnyEvent(self, *args, **kw):
         context = utils.getContext()
+        username = args[0]
         if context.eventname == "onSignon":
             self.removeStaleSessions()
             ret = self._onSignon(*args[:3])
-            newsession = dict (cred = context.cred, username = "anonymous")
-            newsession['last_seen'] = datetime.datetime.now()
-            self[context.cred] = newsession
-            return context.cred
+            existing_session = self.getUserSession(username)
+            if existing_session:
+                logger.debug("using existing session for %s" % username)
+                session = existing_session
+            else:
+                logger.debug("creating new session for %s" % username)
+                cred = context.cred
+                newsession = dict (cred = cred, username = args[0])
+                newsession['last_seen'] = datetime.datetime.now()
+                session = newsession
+                self[cred] = session
+            return session['cred']
         else:
             if not self.validate(context.cred):
                 errors.raiseError(errors.sessionnotfound)
     onAnyEvent.rollback = rollback
     onAnyEvent.block = True
+
+    def genVisitId(self, eventname, args, kw):
+        if eventname == "onSignon":
+            ses = self.getUserSession(args[0])
+            if ses:
+                return ses['cred']
+        return os.urandom(21).encode('hex')
 
     def onReceiveAuthcookies(self, appname, username, cookies):
         cj = utils.create_cookiejar(cookies)
@@ -69,6 +83,12 @@ class SessionKeeper(dict, bases.SubscriberBase):
             if delta > config.session_idletimeout:
                 del self[sid]
                 logger.info("session %s destroyed" % sid)
+
+    def getUserSession(self, username):
+        for session in self.values():
+            if session.get('username',None) == username:
+                return session
+        return None
 
     current = property(getCurrentSession)
 

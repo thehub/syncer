@@ -120,7 +120,8 @@ def create_simple_cookie(cookiejar):
                             sc[name]['expires'] = time.strftime(fmt,
                                                     time.gmtime(cookie.expires))
                         else:
-                            sc[name][attr] = getattr(cookie, attr)
+                            if hasattr(cookie, attr):
+                                sc[name][attr] = getattr(cookie, attr)
     return sc
 
 def convertCookie(what):

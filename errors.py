@@ -45,7 +45,7 @@ def err2str(err):
         print '============================='
         print ''.join(Pyro.util.getPyroTraceback(err))
         print '============================='
-        return "Remote eception"
+        return "Remote exception"
     err_tuple = err['retcode']
     err.update(intcode=err_tuple[0])
     try:
