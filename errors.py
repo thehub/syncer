@@ -40,12 +40,12 @@ def hasFailed(result):
             return True
     return False
 
+def res2errstr(result):
+    return '\n'.join([err2str(handler_res) for handler_res in result.values()])
+
 def err2str(err):
     if isinstance(err, Exception):
-        print '============================='
-        print ''.join(Pyro.util.getPyroTraceback(err))
-        print '============================='
-        return "Remote exception"
+        return "Remote exception" + ''.join(Pyro.util.getPyroTraceback(err))
     err_tuple = err['retcode']
     err.update(intcode=err_tuple[0])
     try:

@@ -8,53 +8,51 @@ class SessionKeeper(dict, bases.SubscriberBase):
         bases.SubscriberBase.__init__(self, *args, **kw)
         dict.__init__(self)
 
-    def releaseSession(self, sid):
-        if sid in self:
-            del self[sid]
-
     def listActiveSession(self):
         return ((sid, data['user']) for sid, data in self.items())
-
-    def authenticate(self, u, p):
-        return True
 
     def validate(self, sid):
         return bool(sid) and sid in self
 
-    def destroySession(self, sid):
-        del self[sid]
-
-    def _onSignon(self, u, p, cookies):
-        if not self.authenticate(u, p):
-            errors.raiseError(errors.authfailure)
+    def destroyThisSession(self, sid):
+        context = utils.getContext()
+        del self[context.cred]
 
     def rollback(self, *args, **kw):
         context = utils.getContext()
         if context.eventname == "onSignon":
             del self[context.cred]
         
-    def onAnyEvent(self, *args, **kw):
-        context = utils.getContext()
-        username = args[0]
-        if context.eventname == "onSignon":
-            self.removeStaleSessions()
-            ret = self._onSignon(*args[:3])
-            existing_session = self.getUserSession(username)
-            if existing_session:
-                logger.debug("using existing session for %s" % username)
-                session = existing_session
-            else:
-                logger.debug("creating new session for %s" % username)
-                cred = context.cred
-                newsession = dict (cred = cred, username = args[0])
-                newsession['last_seen'] = datetime.datetime.now()
-                session = newsession
-                self[cred] = session
-            return session['cred']
+    def onSignon(self, username, *args, **kw):
+        self.removeStaleSessions()
+        existing_session = self.getUserSession(username)
+        if existing_session:
+            logger.debug("using existing session for %s" % username)
+            session = existing_session
         else:
-            if not self.validate(context.cred):
-                errors.raiseError(errors.sessionnotfound)
-    onAnyEvent.rollback = rollback
+            logger.debug("creating new session for %s" % username)
+            context = utils.getContext()
+            cred = context.cred
+            newsession = dict (cred = cred, username = username)
+            newsession['last_seen'] = datetime.datetime.now()
+            session = newsession
+            self[cred] = session
+        return session['cred']
+    onSignon.rollback = rollback
+    onSignon.block = True
+
+    def onSignoff(self):
+        context = utils.getContext()
+        if context.cred in self:
+            self.destroyThisSession()
+        else:
+            logger.warn("session %s does not exist, possibly user has signed out from elsewhere" % context.cred)
+
+    def onAnyEvent(self, *args, **kw):
+        cred = utils.getContext().cred
+        if not self.validate(cred):
+            errors.raiseError(errors.sessionnotfound)
+        return True
     onAnyEvent.block = True
 
     def genVisitId(self, eventname, args, kw):
@@ -93,3 +91,9 @@ class SessionKeeper(dict, bases.SubscriberBase):
     current = property(getCurrentSession)
 
     onAnyEvent.block = True
+
+    def __str__(self):
+        return "<sessions: %s>" % super(self.__class__, self).__str__()
+
+    def __repr__(self):
+        return "<sessions: %s>" % super(self.__class__, self).__repr__()

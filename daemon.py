@@ -13,6 +13,7 @@ utils.pushToBuiltins("all_subscribers", dict ())
 
 syncer = Syncer()
 sessionkeeper = subscribers.sessions.SessionKeeper("sessionkeeper")
+sessionkeeper.ignore_trdb = True
 utils.pushToBuiltins("sessions", sessionkeeper)
 
 #hubspace = subscribers.hubspace.HubSpace("members.the-hub.net", "hubspace")
@@ -20,22 +21,27 @@ hubspace = subscribers.hubspace.HubSpace("localhost:8080", "hubspace")
 hubspace.adminemail = "shon@localhost"
 #hubspace2 = subscribers.hubspace.HubSpace("localhost:8081", "hubspace2")
 ldapwriter = subscribers.ldapwriter.LDAPWriter("ldapwriter")
+ldapwriter.ignore_trdb = True
 
+syncer.onSignon.addSubscriber(sessionkeeper)
 syncer.onSignon.addSubscriber(ldapwriter)
 #syncer.onSignon.addSubscriber(hubspace2)
 syncer.onSignon.addSubscriber(hubspace)
-syncer.onSignon.addArgsFilter(lambda args, kw: ((args[0], utils.Masked(), utils.Masked("cookies")), kw))
+syncer.onSignon.addArgsFilter(lambda args, kw: ((args[0], utils.Masked("Secret"), utils.Masked("cookies")), kw))
 #syncer.onSignon.ignore_trdb = True
-syncer.onSignon.join = False
+syncer.onSignon.join = True
 
 syncer.onReceiveAuthcookies.join = True
 
-event = syncer.onUserChange
-syncer.onUserChange.addSubscriber(hubspace)
+event = syncer.onUserMod
+syncer.onUserMod.addSubscriber(sessionkeeper)
+syncer.onUserMod.addSubscriber(hubspace)
+syncer.onUserMod.addSubscriber(ldapwriter)
 #syncer.onUserChange.addSubscriber(hubspace2)
-syncer.onUserChange.join = True
+syncer.onUserMod.join = True
 
 Pyro.core.initServer()
+
 daemon = Pyro.core.Daemon()
 
 uri = daemon.connect(syncer, config.syncer_path)

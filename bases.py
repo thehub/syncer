@@ -6,13 +6,14 @@ import Pyro.core
 
 import errors, config, utils
 
-picklables = (int, str, dict, tuple, list, Exception, float, long, set)
+picklables = (int, str, dict, tuple, list, Exception, float, long, set, bool, type(None))
 
 class SubscriberBase(object):
     def __init__(self, name):
         self.name = name.replace(" ", "_")
         self.current_tasks = dict()
         self.adminemail = config.subscriber_adminemail
+        self.ignore_trdb = False
         all_subscribers[name] = self
 
 class WebApp(SubscriberBase):
@@ -89,9 +90,6 @@ class Syncer(Pyro.core.ObjBase):
             event = Event(eventname)
             self.events[eventname] = event
         setattr(self, eventname, event)
-        for subscriber in all_subscribers.values():
-            if hasattr(subscriber, "onAnyEvent"):
-                event.addSubscriber(subscriber)
         return event
 
 class Event(object):
@@ -127,6 +125,10 @@ class Event(object):
                 is_last_attempt = ((attempt + 1) == attempts)
                 try:
                     ret = f(*args, **kw)
+                    if not type(ret) in picklables:
+                        err = "Unpicklable result: %s" % ret
+                        logger.error(err)
+                        raise Exception(err)
                     context.results[subscriber.name] = dict(appname = subscriber.name, retcode = errors.success, result = ret)
                     break
                 except Exception, err:
@@ -154,7 +156,7 @@ class Event(object):
 
     def runInThread(self, context, subscriber, args, kw, th_q, block=False):
         logger.info("%s %s: starting (block=%s)" % (subscriber.name, self.name, block))
-        if not self.ignore_trdb and trdb.hasBacklog(subscriber.name):
+        if not (subscriber.ignore_trdb or self.ignore_trdb) and trdb.hasBacklog(subscriber.name):
             err = errors.getError(errors.app_backlog_not_empty, appname = subscriber.name)
             context.results[subscriber.name] = dict(retcode = errors.app_backlog_not_empty, appname = subscriber.name, result = err)
             logger.error(errors.err2str(err))
@@ -206,7 +208,8 @@ class Event(object):
 
         print '========================================'
         for (sid, session) in sessions.items():
-            print sid, session['username']
+            print sid, session['username'], session['ldapconn']
+        print results
         print '========================================'
         return results
 
@@ -221,7 +224,7 @@ class Event(object):
             failed_apps = dict ()
             username = sessions[context.cred]['username']
 
-            rollback_candidates = [subscriber for subscriber in self.subscribers_s + self.subscribers if subscriber.name in results]
+            rollback_candidates = [s for s in self.subscribers_s + self.subscribers if not s.ignore_trdb and s.name in results]
             logger.debug("Begin rollback")
 
             for subscriber in rollback_candidates:
