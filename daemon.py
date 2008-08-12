@@ -33,12 +33,15 @@ syncer.onSignon.join = True
 
 syncer.onReceiveAuthcookies.join = True
 
-event = syncer.onUserMod
 syncer.onUserMod.addSubscriber(sessionkeeper)
 syncer.onUserMod.addSubscriber(hubspace)
 syncer.onUserMod.addSubscriber(ldapwriter)
-#syncer.onUserChange.addSubscriber(hubspace2)
 syncer.onUserMod.join = True
+
+syncer.onUserAdd.addSubscriber(sessionkeeper)
+#syncer.onUserAdd.addSubscriber(hubspace)
+syncer.onUserAdd.addSubscriber(ldapwriter)
+syncer.onUserAdd.join = True
 
 Pyro.core.initServer()
 
