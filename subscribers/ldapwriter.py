@@ -1,4 +1,5 @@
 import itertools
+import datetime
 import ldap
 import ldap.schema
 import bases, utils
@@ -26,6 +27,30 @@ def getAttrs(oc, attrs):
 def addAttrs(*ocnames):
     return tuple(itertools.chain(*[hubocnames_and_attrs[name] for name in ocnames]))
 
+def makeValueLDAPFriendly(v):
+    iterable = hasattr(v, '__iter__')
+    if not iterable: v = [v]
+    v_friendly = []
+    # for block below is a bit ugly code, do you know any better way? 
+    for x in v:
+        if isinstance(x, unicode):
+            x = x.encode('utf-8') # http://www.mail-archive.com/python-ldap-dev@lists.sourceforge.net/msg00040.html
+        elif isinstance(x, bool):
+            x = str(int(x))
+        elif x == None:
+            x = ''
+        elif isinstance(x, datetime.date):
+            x = x.strftime("%Y%m%d") + '000000+0000'
+        else:
+            x = str(x)
+        v_friendly.append(x)
+    if iterable:
+        return v_friendly
+    return v_friendly[0]
+
+def makeTuplesLDAPFriendly(data):
+    return [(k,makeValueLDAPFriendly(v)) for (k,v) in data]
+
 isHubOC = lambda oc: oc.names[0].startswith('hub')
 all_ocs = [schema.get_obj(ldap.schema.ObjectClass, oid) for oid in schema.listall(ldap.schema.ObjectClass)]
 hub_ocs = [oc for oc in all_ocs if isHubOC(oc)]
@@ -35,13 +60,6 @@ oc_entries = dict([(oc.names[0], (oc.names + oc.sup)) for oc in hub_ocs])
 
 conn.unbind_s()
 del all_ocs, conn
-
-def removeExtraAttrs(strct_oc, udata):
-    valid_aux_ocs = findValidOCs(strct_oc)
-    all_attrs = strct_oc.attrs + valid_aux_ocs.attrs
-    record = all_attrs.intersection(udata)
-    record = addObjectClasses(record)
-    return record
 
 class LDAPWriter(bases.SubscriberBase):
 
@@ -60,6 +78,7 @@ class LDAPWriter(bases.SubscriberBase):
     def onUserAdd(self, username, udata):
         # Don't modify `udata` as we may call this method again on failure
         # Add hubGlobalUser record
+        udata = makeTuplesLDAPFriendly(udata)
         user_ocnames = ('hubGlobalUser', 'hubSIP')
         user_all_attrs = addAttrs(*user_ocnames)
         add_record = [('objectClass', tuple(itertools.chain(*[oc_entries[name] for name in user_ocnames])))] + \
@@ -85,6 +104,7 @@ class LDAPWriter(bases.SubscriberBase):
     onUserDel.block = True
 
     def onUserMod(self, username, udata):
+        udata = makeTuplesLDAPFriendly(udata)
         logger.debug("Modifying %s: %s" % (username, [k[0] for k in udata]))
         dn = globaluserdn % username
         conn = sessions.current['ldapconn']
@@ -96,3 +116,15 @@ class LDAPWriter(bases.SubscriberBase):
                 conn.modify_s(dn, mod_list[-1:])
         return True
     onUserMod.block = True
+
+    def onAddUser2Groups(self, username, groupdata):
+        # groupdata -> [(hub_id1, level1), (hub_id2, level2), ...]
+        # Add global user ref. to appropriate roles.level
+        groupdata = makeTuplesLDAPFriendly(groupdata)
+        username = str(username)
+        userdn = globaluserdn % username
+        for (hub_id, level) in groupdata:
+            leveldn = "level=%s,ou=roles,hubId=%s,ou=hubs,o=the-hub.net" % (level, hub_id)
+            self.conn.modify_s(leveldn, [(ldap.MOD_ADD, "member", userdn)])
+        return True
+    onAddUser2Groups.block = True
