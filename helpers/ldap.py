@@ -70,10 +70,10 @@ class HubId2dnMapping(AttributeMapping):
     def _toApp(self, o, in_attrs, out_attrs):
         out_attrs[self.app_attrs[0]] = in_attrs[self.ldap_attrs[0]].split(',')[0].split('=')[1]
     def _toLDAP(self, o, in_attrs, out_attrs):
-        tmpl = 'uid=%(user_name)s,ou=users,hubId=%(hub_id)s,ou=hubs,o=the-hub.net'
+        tmpl = 'hubId=%(hub_id)s,ou=hubs,o=the-hub.net'
         out_attrs['homeHub'] = tmpl % dict (user_name = in_attrs['user_name'], hub_id = in_attrs['homeplace'])
         tmpl = 'hubId=%(hub_id)s,ou=hubs,o=the-hub.net'
-        out_attrs['storageLocation'] = tmpl % dict (hub_id = in_attrs.get('homeplace', getattr(o, 'homeplace')))
+        out_attrs['storageLocation'] = tmpl % dict (hub_id = in_attrs['homeplace'])
 
 class OtherHubsMapping(AttributeMapping):
     def _toApp(self, o, in_attrs, out_attrs):
@@ -94,9 +94,9 @@ class NameMapping(AttributeMapping):
     def _toLDAP(self, o, in_attrs, out_attrs):
         first_name = in_attrs.get('first_name', None) or getattr(o, 'first_name')
         last_name = in_attrs.get('last_name', None) or getattr(o, 'last_name')
-        if first_name in in_attrs:
+        if 'first_name' in in_attrs:
             out_attrs['gn'] = in_attrs['first_name']
-        if last_name in in_attrs:
+        if 'last_name' in in_attrs:
             out_attrs['sn'] = in_attrs['last_name']
         out_attrs['cn'] = "%(first_name)s %(last_name)s" % locals()
 
@@ -144,7 +144,7 @@ object_maps = dict (
         SimpleMapping('skypeId', 'skype_id'),
         SimpleMapping('hubIdentitySIPURI', 'sip_id'),
         SimpleMapping('hubUserId', 'id'),
-        SimpleMapping('labeleledURI', 'website'),
+        SimpleMapping('labeledURI', 'website'),
         HubId2dnMapping(('homeHub', 'storageLocation'), 'homeplace'),
         HubId2dnMapping('hubMemberOf', 'groups'),
         #RelatedJoinMapping('policyReference', 'access_policies'),
@@ -184,7 +184,7 @@ object_maps = dict (
         SimpleMapping('closingTime', 'closes'),
         SimpleMapping('timezone'),
         SimpleMapping('billingCompanyNumber', 'company_no'),
-        SimpleMapping('labeleledURI', 'url'),
+        SimpleMapping('labeledURI', 'url'),
         SimpleMapping('billingVATID', 'vat_no'),
         SimpleMapping('telephoneNumber', 'telephone'),
         SimpleMapping('bankAccountNumber', 'account_no'),
@@ -255,3 +255,33 @@ if __name__ == '__main__':
     ldap_list = mapper.toLDAP(None, in_attrs)
     print ldap_list
     print mapper.toApp(None, dict(ldap_list))
+    in_attrs = \
+{'active': True,
+ 'address': '',
+ 'billto': None,
+ 'description': '',
+ 'display_name': u'Ui Oi',
+ 'email2': None,
+ 'email3': None,
+ 'email_address': u'dfg@ert.lop',
+ 'ext': None,
+ 'fax': None,
+ 'first_name': u'Ui',
+ 'frank_pin': None,
+ 'gb_storage': None,
+ 'handset': None,
+ 'home': None,
+ 'homeplace': 1,
+ 'last_name': u'Oi',
+ 'mobile': None,
+ 'organisation': '',
+ 'os': '',
+ 'password': u'66778',
+ 'sip_id': None,
+ 'skype_id': '',
+ 'storage_loc': '',
+ 'title': '',
+ 'user_name': u'lopl',
+ 'website': None,
+ 'work': None}
+    ldap_list = mapper.toLDAP(None, in_attrs)
