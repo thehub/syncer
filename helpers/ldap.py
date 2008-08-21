@@ -100,6 +100,11 @@ class NameMapping(AttributeMapping):
             out_attrs['sn'] = in_attrs['last_name']
         out_attrs['cn'] = "%(first_name)s %(last_name)s" % locals()
 
+class TariffMapping(AttributeMapping):
+    def _toLDAP(self, o, in_attrs, out_attrs):
+        tariffdn = "tariffId=%(current_tariff)s,ou=tariffs,hubId=%(hub_id)s,ou=hubs,o=the-hub.net"
+        out_attrs['tariffReference'] = tariffdn % in_attrs
+
 def makeValuesLDAPFriendly(d):
     out_d = dict ()
     for (k, v) in d.items():
@@ -173,6 +178,7 @@ object_maps = dict (
         SimpleMapping('publicViewable', 'public_field'),
         SimpleMapping('postalCode', 'postcode'),
         SimpleMapping('businessCategory', 'biz_type'),
+        TariffMapping('tariffReference'),
         ),
     hub = AttributeMapper (
         SimpleMapping('hubId', 'id'),
@@ -194,7 +200,7 @@ object_maps = dict (
         SimpleMapping('bankSwiftCode', 'swift_no'),
         SimpleMapping('billingPaymentTerms', 'payment_terms'),
         SimpleMapping('hubImageMimetype', 'logo_mimetype'),
-        )
+        ),
     )
 
 if __name__ == '__main__':
