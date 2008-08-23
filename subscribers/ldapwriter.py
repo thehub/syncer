@@ -8,6 +8,7 @@ uri = "ldap://localhost"
 globaluserdn = "uid=%s,ou=users,o=the-hub.net"
 localuserdn  = "uid=%s,ou=users,hubId=1,ou=hubs,o=the-hub.net"
 hubdn = "hubId=%s,ou=hubs,o=the-hub.net"
+leveldn = "level=%s,ou=roles,hubId=%s,ou=hubs,o=the-hub.net"
 
 conn = ldap.ldapobject.ReconnectLDAPObject(uri)
 conn.simple_bind_s()
@@ -55,6 +56,7 @@ class LDAPWriter(bases.SubscriberBase):
     def onUserAdd(self, username, udata):
         # Don't modify `udata` as we may call this method again on failure
         # Add hubGlobalUser record
+        print username, udata
         user_ocnames = ('hubGlobalUser', 'hubSIP')
         user_all_attrs = addAttrs(*user_ocnames)
         add_record = [('objectClass', tuple(itertools.chain(*[oc_entries[name] for name in user_ocnames])))] + \
@@ -66,31 +68,38 @@ class LDAPWriter(bases.SubscriberBase):
         add_record = [('objectClass', tuple(itertools.chain(*[oc_entries[name] for name in user_ocnames])))] + \
                      [(k,v) for (k,v) in udata if k in user_all_attrs]
         self.conn.add_s(localuserdn % username, add_record)
-        # Add global user ref. to appropriate roles.level
-        for (k,v) in udata:
-            if k is 'groups':
-                self.conn.modify_s(globaluserdn % username, [(ldap.MOD_ADD, k, v)])
-                break
         return True
     onUserAdd.block = True
+
+    def onUserMod(self, username, udata):
+        logger.debug("Modifying %s: %s" % (username, [k[0] for k in udata]))
+        user_ocnames = ('hubGlobalUser', 'hubSIP')
+        globaluser_all_attrs = addAttrs(*user_ocnames)
+        user_ocnames = ('hubLocalUser',)
+        localuser_all_attrs = addAttrs(*user_ocnames)
+        globaldn = globaluserdn % username
+        localdn = localuserdn % username
+        conn = self.conn
+        for (k,v) in udata:
+            if k in globaluser_all_attrs:
+                mod_list = [(ldap.MOD_DELETE, k, None), (ldap.MOD_ADD, k, v)]
+                try:
+                    conn.modify_s(globaluserdn, mod_list)
+                except ldap.NO_SUCH_ATTRIBUTE, err:
+                    conn.modify_s(globaluserdn, mod_list[-1:])
+            elif k in localuser_all_attrs:
+                mod_list = [(ldap.MOD_DELETE, k, None), (ldap.MOD_ADD, k, v)]
+                try:
+                    conn.modify_s(localuserdn, mod_list)
+                except ldap.NO_SUCH_ATTRIBUTE, err:
+                    conn.modify_s(localuserdn, mod_list[-1:])
+        return True
+    onUserMod.block = True
 
     def onUserDel(self, username, udata):
         #self.conn.delete....
         pass
     onUserDel.block = True
-
-    def onUserMod(self, username, udata):
-        logger.debug("Modifying %s: %s" % (username, [k[0] for k in udata]))
-        dn = globaluserdn % username
-        conn = self.conn
-        for (k,v) in udata:
-            mod_list = [(ldap.MOD_DELETE, k, None), (ldap.MOD_ADD, k, v)]
-            try:
-                conn.modify_s(dn, mod_list)
-            except ldap.NO_SUCH_ATTRIBUTE, err:
-                conn.modify_s(dn, mod_list[-1:])
-        return True
-    onUserMod.block = True
 
     def onAddUser2Groups(self, username, groupdata):
         # groupdata -> [(hub_id1, level1), (hub_id2, level2), ...]
@@ -98,12 +107,26 @@ class LDAPWriter(bases.SubscriberBase):
         username = str(username)
         userdn = globaluserdn % username
         for (hub_id, level) in groupdata:
-            leveldn = "level=%s,ou=roles,hubId=%s,ou=hubs,o=the-hub.net" % (level, hub_id)
-            self.conn.modify_s(leveldn, [(ldap.MOD_ADD, "member", userdn)])
+            dn = leveldn % (level, hub_id)
+            self.conn.modify_s(dn, [(ldap.MOD_ADD, "member", userdn)])
         return True
     onAddUser2Groups.block = True
 
     def onHubAdd(self, hubid, hubdata):
+        dn = hubdn % hubid
+        ocnames = ('hub',)
+        all_attrs = addAttrs(*ocnames)
+        add_record = [('objectClass', tuple(itertools.chain(*[oc_entries[name] for name in ocnames])))] + \
+                     [(k,v) for (k,v) in udata if k in all_attrs]
+        self.conn.add_s(dn, add_record)
+        hub_ous = ['users', 'groups', 'tariffs', 'roles', 'policies']
+        oudn = "ou=%s,hubId=%s,ou=hubs,o=the-hub.net"
+        for ou in hub_ous:
+            dn = oudn % (ou, hubid)
+            add_record = [ ('objectClass', 'organizationalUnit'),
+                           ('description', "Top level entry for the subtree of this hub's %s" % ou),
+                           ('ou', ou) ]
+            self.conn.add_s(dn, add_record)
         return True
     onHubAdd.block = True
 
@@ -118,3 +141,12 @@ class LDAPWriter(bases.SubscriberBase):
                 conn.modify_s(dn, mod_list[-1:])
         return True
     onHubMod.block = True
+
+    def onRoleAdd(self, hubid, data):
+        dn = leveldn % (data['level'], hubid)
+        add_record = [ ('objectClass', 'hubLocalRole'),] + \
+                     [(k,v) for (k,v) in data]
+        self.conn.add_s(dn, add_record)
+        return True
+    onRoleAdd.block = True
+

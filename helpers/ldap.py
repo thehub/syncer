@@ -54,7 +54,8 @@ class AttributeMapping(object):
 
 class SimpleMapping(AttributeMapping):
     def _toLDAP(self, o, in_attrs, out_attrs):
-        out_attrs[self.ldap_attrs[0]] = in_attrs[self.app_attrs[0]]
+        v = in_attrs.get(self.app_attrs[0], None) or o and getattr(o, self.app_attrs[0])
+        out_attrs[self.ldap_attrs[0]] = v
     def _toApp(self, o, in_attrs, out_attrs):
         out_attrs[self.app_attrs[0]] = in_attrs[self.ldap_attrs[0]]
 
@@ -104,6 +105,15 @@ class TariffMapping(AttributeMapping):
     def _toLDAP(self, o, in_attrs, out_attrs):
         tariffdn = "tariffId=%(current_tariff)s,ou=tariffs,hubId=%(hub_id)s,ou=hubs,o=the-hub.net"
         out_attrs['tariffReference'] = tariffdn % in_attrs
+
+
+class RoleMapping(AttributeMapping):
+    def _toLDAP(self, o, in_attrs, out_attrs):
+        level = getattr(o, self.app_attrs[0])
+        out_attrs['cn'] = "%s Role" % level.capitalize()
+        out_attrs['level'] = level
+    def _toApp(self, o, in_attrs, out_attrs):
+        out_attrs['level'] = in_attrs['level']
 
 def makeValuesLDAPFriendly(d):
     out_d = dict ()
@@ -201,6 +211,10 @@ object_maps = dict (
         SimpleMapping('billingPaymentTerms', 'payment_terms'),
         SimpleMapping('hubImageMimetype', 'logo_mimetype'),
         ),
+    group = AttributeMapper (
+        RoleMapping(('cn', 'level'), 'level'),
+        SimpleMapping('roleId', 'id'),
+        )
     )
 
 if __name__ == '__main__':
