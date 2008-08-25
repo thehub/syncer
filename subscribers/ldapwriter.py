@@ -3,6 +3,7 @@ import datetime
 import ldap
 import ldap.schema
 import bases, utils
+from helpers.ldap import ldapfriendly, ldapSafe
 
 uri = "ldap://localhost"
 globaluserdn = "uid=%s,ou=users,o=the-hub.net"
@@ -47,16 +48,17 @@ class LDAPWriter(bases.SubscriberBase):
     conn = property(getConn)
         
     def onSignon(self, u, p, cookies):
+        u, p = ldapSafe((u, p))
         conn = ldap.ldapobject.ReconnectLDAPObject(uri)
         conn.simple_bind_s(globaluserdn % u, p)
         sessions.current['ldapconn'] = conn
         return True
     onSignon.block = True
 
+    @ldapfriendly
     def onUserAdd(self, username, udata):
         # Don't modify `udata` as we may call this method again on failure
         # Add hubGlobalUser record
-        print username, udata
         user_ocnames = ('hubGlobalUser', 'hubSIP')
         user_all_attrs = addAttrs(*user_ocnames)
         add_record = [('objectClass', tuple(itertools.chain(*[oc_entries[name] for name in user_ocnames])))] + \
@@ -71,6 +73,7 @@ class LDAPWriter(bases.SubscriberBase):
         return True
     onUserAdd.block = True
 
+    @ldapfriendly
     def onUserMod(self, username, udata):
         logger.debug("Modifying %s: %s" % (username, [k[0] for k in udata]))
         user_ocnames = ('hubGlobalUser', 'hubSIP')
@@ -84,34 +87,44 @@ class LDAPWriter(bases.SubscriberBase):
             if k in globaluser_all_attrs:
                 mod_list = [(ldap.MOD_DELETE, k, None), (ldap.MOD_ADD, k, v)]
                 try:
-                    conn.modify_s(globaluserdn, mod_list)
+                    conn.modify_s(globaldn, mod_list)
                 except ldap.NO_SUCH_ATTRIBUTE, err:
-                    conn.modify_s(globaluserdn, mod_list[-1:])
+                    conn.modify_s(globaldn, mod_list[-1:])
             elif k in localuser_all_attrs:
                 mod_list = [(ldap.MOD_DELETE, k, None), (ldap.MOD_ADD, k, v)]
                 try:
-                    conn.modify_s(localuserdn, mod_list)
+                    conn.modify_s(localdn, mod_list)
                 except ldap.NO_SUCH_ATTRIBUTE, err:
-                    conn.modify_s(localuserdn, mod_list[-1:])
+                    conn.modify_s(localdn, mod_list[-1:])
         return True
     onUserMod.block = True
 
+    @ldapfriendly
     def onUserDel(self, username, udata):
         #self.conn.delete....
-        pass
+        raise NotImplemented
     onUserDel.block = True
 
-    def onAddUser2Groups(self, username, groupdata):
+    @ldapfriendly
+    def onAssignRoles(self, username, groupdata):
+        """
+        When user is assigned a new role
+        """
         # groupdata -> [(hub_id1, level1), (hub_id2, level2), ...]
         # Add global user ref. to appropriate roles.level
-        username = str(username)
         userdn = globaluserdn % username
         for (hub_id, level) in groupdata:
             dn = leveldn % (level, hub_id)
             self.conn.modify_s(dn, [(ldap.MOD_ADD, "member", userdn)])
         return True
-    onAddUser2Groups.block = True
+    onAssignRoles.block = True
 
+    @ldapfriendly
+    def onRevokeRoles(self, username, groupdata):
+        raise NotImplemented
+    onRevokeRoles.block = True
+
+    @ldapfriendly
     def onHubAdd(self, hubid, hubdata):
         dn = hubdn % hubid
         ocnames = ('hub',)
@@ -130,6 +143,7 @@ class LDAPWriter(bases.SubscriberBase):
         return True
     onHubAdd.block = True
 
+    @ldapfriendly
     def onHubMod(self, hubid, hubdata):
         dn = hubdn % hubid
         conn = self.conn
@@ -142,11 +156,14 @@ class LDAPWriter(bases.SubscriberBase):
         return True
     onHubMod.block = True
 
+    @ldapfriendly
     def onRoleAdd(self, hubid, data):
+        """
+        When a new role is added for a hub, same as new group in HubSpace
+        """
         dn = leveldn % (data['level'], hubid)
         add_record = [ ('objectClass', 'hubLocalRole'),] + \
                      [(k,v) for (k,v) in data]
         self.conn.add_s(dn, add_record)
         return True
     onRoleAdd.block = True
-

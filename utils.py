@@ -168,13 +168,16 @@ def sendAlert(data):
     errstr = ""
     try:
         smtpresult = session.sendmail(sender, [data['recipient']], body)
+        logger.info("Alert sent to %s" % str(data['recipient']))
     except Exception, err:
         smtpresult = None
         errstr = "Error sending mail to %s: %s" % (data['recipient'], str(err))
+        logger.error(errstr)
     
     if smtpresult:
         for recip in smtpresult.keys():
             errstr + "Error sending mail to %s: %s %s %s" % (recip, smtpresult[recip][0], smtpresult[recip][1], errstr)
+            logger.error(errstr)
 
     return errstr
 

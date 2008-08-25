@@ -37,7 +37,7 @@ class AttributeMapper(list):
         out_attrs = dict ()
         for attr_map in attr_maps:
             attr_map._toLDAP(o, in_attrs, out_attrs)
-        out_attrs = makeValuesLDAPFriendly(out_attrs)
+        #out_attrs = makeObjLDAPSafe(out_attrs)
         return list(out_attrs.items())
 
 class AttributeMapping(object):
@@ -115,30 +115,42 @@ class RoleMapping(AttributeMapping):
     def _toApp(self, o, in_attrs, out_attrs):
         out_attrs['level'] = in_attrs['level']
 
-def makeValuesLDAPFriendly(d):
-    out_d = dict ()
-    for (k, v) in d.items():
-        iterable = hasattr(v, '__iter__')
-        if not iterable: v = [v]
-        v_friendly = []
-        # for block below is a bit ugly code, do you know any better way? 
-        for x in v:
-            if isinstance(x, unicode):
-                x = x.encode('utf-8') # http://www.mail-archive.com/python-ldap-dev@lists.sourceforge.net/msg00040.html
-            elif isinstance(x, bool):
-                x = str(int(x))
-            elif x == None:
-                x = ''
-            elif isinstance(x, datetime.date):
-                x = x.strftime("%Y%m%d") + '000000+0000'
-            else:
-                x = str(x)
-            v_friendly.append(x)
-        if not iterable:
-            v_friendly = v_friendly[0]
-        if v_friendly:
-            out_d[k] = v_friendly
-    return out_d
+def ldapSafe(x):
+    # a bit ugly code, do you know any better way? 
+    if isinstance(x, unicode):
+        x = x.encode('utf-8') # http://www.mail-archive.com/python-ldap-dev@lists.sourceforge.net/msg00040.html
+    elif isinstance(x, (bool, int)):
+        x = str(int(x))
+    elif x == None:
+        x = ''
+    elif isinstance(x, datetime.date):
+        x = x.strftime("%Y%m%d") + '000000+0000'
+    elif isinstance(x, (list, tuple)):
+        x = [ldapSafe(i) for i in x if i]
+    return x
+
+def makeArgLDAPFriendly(o):
+    if isinstance(o, (list, tuple)):
+        out = []
+        for (k, v) in o:
+            iterable = hasattr(v, '__iter__')
+            if not iterable: v = [v]
+            v_friendly = []
+            for x in v:
+                x = ldapSafe(x)
+                v_friendly.append(x)
+            if not iterable:
+                v_friendly = v_friendly[0]
+            if v_friendly:
+                out.append((ldapSafe(k), v_friendly))
+        return out
+    return ldapSafe(o)
+
+def ldapfriendly(f):
+    def safeFn(*args, **kw):
+        args = [makeArgLDAPFriendly(arg) for arg in args]
+        return f(*args, **kw)
+    return safeFn
 
 object_maps = dict (
     user = AttributeMapper (
