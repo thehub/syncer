@@ -4,6 +4,8 @@
 
 import datetime
 
+username2globaluserdn = lambda user_name: "uid=%s,ou=users,o=the-hub.net" % user_name
+
 class AttributeMapper(list):
     def __init__(self, *args):
         super(self.__class__, self).__init__(args)
@@ -115,6 +117,14 @@ class RoleMapping(AttributeMapping):
     def _toApp(self, o, in_attrs, out_attrs):
         out_attrs['level'] = in_attrs['level']
 
+class UidMapping(AttributeMapping):
+    def _toLDAP(self, o, in_attrs, out_attrs):
+        user_name = in_attrs[self.app_attrs[0]]
+        out_attrs['uid'] = user_name
+        out_attrs['hubUserReference'] = username2globaluserdn(user_name)
+    def _toApp(self, o, in_attrs, out_attrs):
+        out_attrs[self.app_attrs[0]] = in_attrs['uid']
+
 def ldapSafe(x):
     # a bit ugly code, do you know any better way? 
     if isinstance(x, unicode):
@@ -154,7 +164,7 @@ def ldapfriendly(f):
 
 object_maps = dict (
     user = AttributeMapper (
-        SimpleMapping(('uid', 'hubUserReference'), 'user_name'),
+        UidMapping(('uid', 'hubUserReference'), 'user_name'),
         SimpleMapping('mail', 'email_address'),
         SimpleMapping('active'),
         SimpleMapping('displayName', 'display_name'),
@@ -173,7 +183,6 @@ object_maps = dict (
         SimpleMapping('hubUserId', 'id'),
         SimpleMapping('labeledURI', 'website'),
         HubId2dnMapping(('homeHub', 'storageLocation'), 'homeplace'),
-        HubId2dnMapping('hubMemberOf', 'groups'),
         #RelatedJoinMapping('policyReference', 'access_policies'),
         SimpleMapping('extensionTelephoneNumber', 'ext'),
         SimpleMapping('quotaStorage', 'gb_storage'),

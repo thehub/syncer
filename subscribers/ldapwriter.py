@@ -108,14 +108,18 @@ class LDAPWriter(bases.SubscriberBase):
     @ldapfriendly
     def onAssignRoles(self, username, groupdata):
         """
-        When user is assigned a new role
+        When user is assigned new roles
         """
         # groupdata -> [(hub_id1, level1), (hub_id2, level2), ...]
         # Add global user ref. to appropriate roles.level
         userdn = globaluserdn % username
+        conn = self.conn
         for (hub_id, level) in groupdata:
             dn = leveldn % (level, hub_id)
-            self.conn.modify_s(dn, [(ldap.MOD_ADD, "member", userdn)])
+            conn.modify_s(dn, [(ldap.MOD_ADD, "member", userdn)])
+        myhubs = [tup[0] for tup in groupdata]
+        mod_list = [(ldap.MOD_ADD, "hubMemberOf", myhubs)]
+        conn.modify_s(userdn, mod_list)
         return True
     onAssignRoles.block = True
 
