@@ -109,14 +109,26 @@ class LDAPWriter(bases.SubscriberBase):
     def onAssignRoles(self, username, groupdata):
         """
         When user is assigned new roles
+        All previous roles would replaced with new set of roles.
         """
         # groupdata -> [(hub_id1, level1), (hub_id2, level2), ...]
         # Add global user ref. to appropriate roles.level
         userdn = globaluserdn % username
         conn = self.conn
+        levelsearch = conn.search_s("ou=hubs,o=the-hub.net", ldap.SCOPE_SUBTREE, \
+            '(&(objectClass=hubLocalRole)(member=uid=%s,ou=users,o=the-hub.net))' % username, None, None)
+        oldleveldns = [l[0] for l in levelsearch]
+        # 1. Add new roles
         for (hub_id, level) in groupdata:
             dn = leveldn % (level, hub_id)
-            conn.modify_s(dn, [(ldap.MOD_ADD, "member", userdn)])
+            if dn in curleveldns: # add if required
+                oldleveldns.remove(dn) # promote old role -> new role
+            else:
+                conn.modify_s(dn, [(ldap.MOD_ADD, "member", userdn)])
+        # 2. Remove old roles
+        for dn in oldleveldns:
+            conn.modify_s(dn, [ldap.MOD_DELETE, "member", userdn])
+        # 3. Add role references as globaluser's hubMemberOf attribute
         myhubs = [tup[0] for tup in groupdata]
         mod_list = [(ldap.MOD_ADD, "hubMemberOf", myhubs)]
         conn.modify_s(userdn, mod_list)
@@ -134,7 +146,7 @@ class LDAPWriter(bases.SubscriberBase):
         ocnames = ('hub',)
         all_attrs = addAttrs(*ocnames)
         add_record = [('objectClass', tuple(itertools.chain(*[oc_entries[name] for name in ocnames])))] + \
-                     [(k,v) for (k,v) in udata if k in all_attrs]
+                     [(k,v) for (k,v) in hubdata if k in all_attrs]
         self.conn.add_s(dn, add_record)
         hub_ous = ['users', 'groups', 'tariffs', 'roles', 'policies']
         oudn = "ou=%s,hubId=%s,ou=hubs,o=the-hub.net"
@@ -166,8 +178,7 @@ class LDAPWriter(bases.SubscriberBase):
         When a new role is added for a hub, same as new group in HubSpace
         """
         dn = leveldn % (data['level'], hubid)
-        add_record = [ ('objectClass', 'hubLocalRole'),] + \
-                     [(k,v) for (k,v) in data]
+        add_record = [ ('objectClass', 'hubLocalRole'),] + [(k,v) for (k,v) in data]
         self.conn.add_s(dn, add_record)
         return True
     onRoleAdd.block = True

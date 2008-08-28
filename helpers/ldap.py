@@ -32,6 +32,8 @@ class AttributeMapper(list):
         return out_attrs
     def toLDAP(self, o, in_attrs):
         attr_maps = []
+        if not in_attrs and o:
+            in_attrs = dict([(attr, getattr(o, attr)) for attr in self.all_app_attrs if getattr(o, attr, None)])
         for attr in in_attrs:
             if attr in self.all_app_attrs:
                 attr_maps.append(self.app_map[attr])
@@ -39,7 +41,6 @@ class AttributeMapper(list):
         out_attrs = dict ()
         for attr_map in attr_maps:
             attr_map._toLDAP(o, in_attrs, out_attrs)
-        #out_attrs = makeObjLDAPSafe(out_attrs)
         return list(out_attrs.items())
 
 class AttributeMapping(object):
