@@ -41,6 +41,8 @@ def hasFailed(result):
     return False
 
 def res2errstr(result):
+    if isinstance(result, Exception):
+        return "Remote exception" + ''.join(Pyro.util.getPyroTraceback(result))
     return '\n'.join([err2str(handler_res) for handler_res in result.values()])
 
 def err2str(err):

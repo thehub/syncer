@@ -1,3 +1,4 @@
+import threading
 import Pyro
 
 import utils
@@ -10,6 +11,7 @@ utils.setupLogging()
 trdb = utils.PList(config.trdbpath)
 utils.pushToBuiltins("trdb", trdb)
 utils.pushToBuiltins("all_subscribers", dict ())
+utils.pushToBuiltins("syncer_tls", threading.local())
 
 syncer = Syncer()
 sessionkeeper = subscribers.sessions.SessionKeeper("sessionkeeper")

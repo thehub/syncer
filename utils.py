@@ -1,4 +1,4 @@
-import os, sys, copy, cPickle
+import os, copy, cPickle
 import logging.handlers
 import cookielib
 import Cookie
@@ -44,12 +44,7 @@ def setupDirs():
     for path in (datadir, logdir):
         if not os.path.exists(path): os.makedirs(path)
     
-def getContext(frange=xrange(1,7)):
-    for depth in frange:
-        frame = sys._getframe(depth)
-        context = frame.f_locals.get('context', None)
-        #print "search: %s %s" % (frame.f_code.co_name, str([k for k in frame.f_locals]))
-        if context: return context
+getContext = lambda: syncer_tls.context
 
 class PList(list):
     def __init__(self, path):
@@ -72,7 +67,6 @@ class PList(list):
             if appname in tr[-1]:
                 return True
         return False
-
 
 # Inspiration => http://docs.turbogears.org/1.0/ConvertCookies
 

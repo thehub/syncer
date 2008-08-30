@@ -120,6 +120,7 @@ class Event(object):
         
     def runHandler(self, context, f, args, kw, subscriber, th_q):
         attempts = getattr(f, 'attempts', 2)
+        syncer_tls.context = context
         try:
             for attempt in range(attempts):
                 is_last_attempt = ((attempt + 1) == attempts)
