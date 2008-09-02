@@ -130,7 +130,7 @@ def ldapSafe(x):
     # a bit ugly code, do you know any better way? 
     if isinstance(x, unicode):
         x = x.encode('utf-8') # http://www.mail-archive.com/python-ldap-dev@lists.sourceforge.net/msg00040.html
-    elif isinstance(x, (bool, int)):
+    elif isinstance(x, (bool, int, long)):
         x = str(int(x))
     elif x == None:
         x = ''
