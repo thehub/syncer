@@ -30,7 +30,7 @@ class AttributeMapper(list):
         for attr_map in attr_maps:
             attr_map._toApp(o, in_attrs, out_attrs)
         return out_attrs
-    def toLDAP(self, o, in_attrs):
+    def toLDAP(self, o, in_attrs={}):
         attr_maps = []
         if not in_attrs and o:
             in_attrs = dict([(attr, getattr(o, attr)) for attr in self.all_app_attrs if getattr(o, attr, None)])
@@ -75,9 +75,7 @@ class HubId2dnMapping(AttributeMapping):
         out_attrs[self.app_attrs[0]] = in_attrs[self.ldap_attrs[0]].split(',')[0].split('=')[1]
     def _toLDAP(self, o, in_attrs, out_attrs):
         tmpl = 'hubId=%(hub_id)s,ou=hubs,o=the-hub.net'
-        out_attrs['homeHub'] = tmpl % dict (user_name = in_attrs['user_name'], hub_id = in_attrs['homeplace'])
-        tmpl = 'hubId=%(hub_id)s,ou=hubs,o=the-hub.net'
-        out_attrs['storageLocation'] = tmpl % dict (hub_id = in_attrs['homeplace'])
+        out_attrs['homeHub'] = tmpl % dict (user_name = in_attrs['user_name'], hub_id = in_attrs['homeplace'].id)
 
 class OtherHubsMapping(AttributeMapping):
     def _toApp(self, o, in_attrs, out_attrs):
@@ -120,7 +118,7 @@ class RoleMapping(AttributeMapping):
 
 class UidMapping(AttributeMapping):
     def _toLDAP(self, o, in_attrs, out_attrs):
-        user_name = in_attrs[self.app_attrs[0]]
+        user_name = (o and getattr(o, self.app_attrs[0])) or in_attrs[self.app_attrs[0]]
         out_attrs['uid'] = user_name
         out_attrs['hubUserReference'] = username2globaluserdn(user_name)
     def _toApp(self, o, in_attrs, out_attrs):
@@ -183,7 +181,7 @@ object_maps = dict (
         SimpleMapping('hubIdentitySIPURI', 'sip_id'),
         SimpleMapping('hubUserId', 'id'),
         SimpleMapping('labeledURI', 'website'),
-        HubId2dnMapping(('homeHub', 'storageLocation'), 'homeplace'),
+        HubId2dnMapping('homeHub', 'homeplace'),
         #RelatedJoinMapping('policyReference', 'access_policies'),
         SimpleMapping('extensionTelephoneNumber', 'ext'),
         SimpleMapping('quotaStorage', 'gb_storage'),
@@ -263,6 +261,8 @@ if __name__ == '__main__':
     print mapper.toLDAP(None, dict(fn = "Shekhar", ln = "Tiwatne", nick = "Shon"))
     print mapper.toApp (None, dict(cn = "Shekhar Tiwatne", pet = "Shon", altname = "Shon"))
 
+    class location:
+        id = 1
     mapper = object_maps['user']
     in_attrs = {
  'active': True,
@@ -280,7 +280,7 @@ if __name__ == '__main__':
  'gb_storage': u'100',
  'handset': None,
  'home': None,
- 'homeplace': 1,
+ 'homeplace': location,
  'last_name': u'Lnmine',
  'mobile': u'+91 112233',
  'organisation': '',
@@ -297,33 +297,3 @@ if __name__ == '__main__':
     ldap_list = mapper.toLDAP(None, in_attrs)
     print ldap_list
     print mapper.toApp(None, dict(ldap_list))
-    in_attrs = \
-{'active': True,
- 'address': '',
- 'billto': None,
- 'description': '',
- 'display_name': u'Ui Oi',
- 'email2': None,
- 'email3': None,
- 'email_address': u'dfg@ert.lop',
- 'ext': None,
- 'fax': None,
- 'first_name': u'Ui',
- 'frank_pin': None,
- 'gb_storage': None,
- 'handset': None,
- 'home': None,
- 'homeplace': 1,
- 'last_name': u'Oi',
- 'mobile': None,
- 'organisation': '',
- 'os': '',
- 'password': u'66778',
- 'sip_id': None,
- 'skype_id': '',
- 'storage_loc': '',
- 'title': '',
- 'user_name': u'lopl',
- 'website': None,
- 'work': None}
-    ldap_list = mapper.toLDAP(None, in_attrs)
