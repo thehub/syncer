@@ -3,6 +3,8 @@
 # unicode conversions when ldap -> app
 
 import datetime
+import binascii
+import base64
 
 username2globaluserdn = lambda user_name: "uid=%s,ou=users,o=the-hub.net" % user_name
 
@@ -124,6 +126,17 @@ class UidMapping(AttributeMapping):
     def _toApp(self, o, in_attrs, out_attrs):
         out_attrs[self.app_attrs[0]] = in_attrs['uid']
 
+class MD5Password(AttributeMapping):
+    def _toLDAP(self, o, in_attrs, out_attrs):
+        hexed_pass = (o and getattr(o, self.app_attrs[0])) or in_attrs[self.app_attrs[0]]
+        print '======================================'
+        print hexed_pass
+        out_attrs['userPassword'] = "{MD5}%s" % base64.b64encode(binascii.unhexlify(hexed_pass))
+        print out_attrs['userPassword']
+        print '======================================'
+    def _toApp(self, o, in_attrs, out_attrs):
+        out_attrs[self.app_attrs[0]] = binascii.hexlify(base64.b64decode(in_attrs['userPassword'][4:]))
+
 def ldapSafe(x):
     # a bit ugly code, do you know any better way? 
     if isinstance(x, unicode):
@@ -175,6 +188,7 @@ object_maps = dict (
         SimpleMapping('homeTelephoneNumber', 'home'),
         SimpleMapping('facsimileTelephoneNumber', 'fax'),
         SimpleMapping('dateCreated', 'created'),
+        MD5Password('userPassword', 'password'),
         Many2OneMapping('mailAlso', ('email2', 'email3')),
         SimpleMapping('postalAddress', 'address'),
         SimpleMapping('skypeId', 'skype_id'),
@@ -285,7 +299,7 @@ if __name__ == '__main__':
  'mobile': u'+91 112233',
  'organisation': '',
  'os': u'my_computer_type',
- 'password': u'secret',
+ 'password': u'71ad1dbaca01b78687d6fe620349091e',
  'sip_id': None,
  'skype_id': '',
  'storage_loc': '',
