@@ -129,11 +129,7 @@ class UidMapping(AttributeMapping):
 class MD5Password(AttributeMapping):
     def _toLDAP(self, o, in_attrs, out_attrs):
         hexed_pass = (o and getattr(o, self.app_attrs[0])) or in_attrs[self.app_attrs[0]]
-        print '======================================'
-        print hexed_pass
         out_attrs['userPassword'] = "{MD5}%s" % base64.b64encode(binascii.unhexlify(hexed_pass))
-        print out_attrs['userPassword']
-        print '======================================'
     def _toApp(self, o, in_attrs, out_attrs):
         out_attrs[self.app_attrs[0]] = binascii.hexlify(base64.b64decode(in_attrs['userPassword'][4:]))
 
