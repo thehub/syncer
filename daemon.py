@@ -55,6 +55,10 @@ syncer.onHubMod.addSubscriber(sessionkeeper)
 syncer.onHubMod.addSubscriber(hubspace)
 syncer.onHubMod.addSubscriber(ldapwriter)
 
+syncer.onRoleAdd.addSubscriber(sessionkeeper)
+syncer.onRoleAdd.addSubscriber(hubspace)
+syncer.onRoleAdd.addSubscriber(ldapwriter)
+
 Pyro.core.initServer()
 
 daemon = Pyro.core.Daemon()

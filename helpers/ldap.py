@@ -7,6 +7,7 @@ import binascii
 import base64
 
 username2globaluserdn = lambda user_name: "uid=%s,ou=users,o=the-hub.net" % user_name
+globaluserdn2username = lambda dn: dn.split(',')[0].split('=')[1]
 
 class AttributeMapper(list):
     def __init__(self, *args):
@@ -35,7 +36,7 @@ class AttributeMapper(list):
     def toLDAP(self, o, in_attrs={}):
         attr_maps = []
         if not in_attrs and o:
-            in_attrs = dict([(attr, getattr(o, attr)) for attr in self.all_app_attrs if getattr(o, attr, None)])
+            in_attrs = dict([(attr, getattr(o, attr)) for attr in self.all_app_attrs if hasattr(o, attr)])
         for attr in in_attrs:
             if attr in self.all_app_attrs:
                 attr_maps.append(self.app_map[attr])
@@ -59,7 +60,9 @@ class AttributeMapping(object):
 
 class SimpleMapping(AttributeMapping):
     def _toLDAP(self, o, in_attrs, out_attrs):
-        v = in_attrs.get(self.app_attrs[0], None) or o and getattr(o, self.app_attrs[0])
+        v = in_attrs.get(self.app_attrs[0], None)
+        if v is None and o:
+            v = getattr(o, self.app_attrs[0])
         out_attrs[self.ldap_attrs[0]] = v
     def _toApp(self, o, in_attrs, out_attrs):
         out_attrs[self.app_attrs[0]] = in_attrs[self.ldap_attrs[0]]
@@ -74,7 +77,7 @@ class Many2OneMapping(AttributeMapping):
 
 class HubId2dnMapping(AttributeMapping):
     def _toApp(self, o, in_attrs, out_attrs):
-        out_attrs[self.app_attrs[0]] = in_attrs[self.ldap_attrs[0]].split(',')[0].split('=')[1]
+        out_attrs[self.app_attrs[0]] = globaluserdn2username(in_attrs[self.ldap_attrs[0]])
     def _toLDAP(self, o, in_attrs, out_attrs):
         tmpl = 'hubId=%(hub_id)s,ou=hubs,o=the-hub.net'
         out_attrs['homeHub'] = tmpl % dict (user_name = in_attrs['user_name'], hub_id = in_attrs['homeplace'].id)
@@ -132,6 +135,12 @@ class MD5Password(AttributeMapping):
         out_attrs['userPassword'] = "{MD5}%s" % base64.b64encode(binascii.unhexlify(hexed_pass))
     def _toApp(self, o, in_attrs, out_attrs):
         out_attrs[self.app_attrs[0]] = binascii.hexlify(base64.b64decode(in_attrs['userPassword'][4:]))
+
+class UserGroupMapping(AttributeMapping):
+    def _toLDAP(self, o, in_attrs, out_attrs):
+        out_attrs[self.ldap_attrs[0]] = username2globaluserdn(o.user.user_name)
+    def _toApp(self, o, in_attrs, out_attrs):
+        out_attrs[self.app_attrs[0]] = globaluserdn2username(self.ldap_attrs[0])
 
 def ldapSafe(x):
     # a bit ugly code, do you know any better way? 
@@ -244,6 +253,7 @@ object_maps = dict (
     group = AttributeMapper (
         RoleMapping(('cn', 'level'), 'level'),
         SimpleMapping('roleId', 'id'),
+        UserGroupMapping('member', 'user_name')
         )
     )
 
@@ -275,7 +285,7 @@ if __name__ == '__main__':
         id = 1
     mapper = object_maps['user']
     in_attrs = {
- 'active': True,
+ 'active': 0,
  'address': '',
  'billto': None,
  'description': '',
