@@ -1,3 +1,5 @@
+import sys
+import os
 import threading
 import Pyro
 
@@ -60,8 +62,13 @@ syncer.onRoleAdd.addSubscriber(hubspace)
 syncer.onRoleAdd.addSubscriber(ldapwriter)
 
 Pyro.core.initServer()
+#Pyro.config.PYRO_TRACELEVEL=3
 
-daemon = Pyro.core.Daemon()
+sslsetup_cmd = "sh %s" % os.path.join(os.getcwd(), "sslsetup.sh")
+if os.system(sslsetup_cmd) != 0:
+    sys.exit("SSL Setup failed, try sh -x %s manually" % sslsetup_cmd)
+
+daemon = Pyro.core.Daemon(prtcol=config.pyro_protocol)
 
 uri = daemon.connect(syncer, config.syncer_path)
 print"Listening on " , uri

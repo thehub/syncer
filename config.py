@@ -1,7 +1,17 @@
-import os, datetime
+import os, datetime, Pyro
 
+use_ssl = False
+pyrobasedir = os.path.dirname(os.path.abspath(__file__))
+pyroconf_path = "%s/Pyro.conf" % pyrobasedir
+Pyro.config.setup(pyroconf_path)
+Pyro.config.PYROSSL_CERTDIR = "%s/certs" % pyrobasedir
 syncer_path = "sync"
-syncer_uri =  "PYROLOC://localhost:9003/%s" % syncer_path
+if use_ssl:
+    syncer_uri =  "PYROLOCSSL://%s:%s/%s" % (Pyro.config.PYRO_HOST, Pyro.config.PYRO_PORT, syncer_path)
+    pyro_protocol = "PYROSSL"
+else:
+    syncer_uri =  "PYROLOC://%s:%s/%s" % (Pyro.config.PYRO_HOST, Pyro.config.PYRO_PORT, syncer_path)
+    pyro_protocol = "PYRO"
 __syncerdebug__ = True
 syncerroot = os.getcwd()
 datadir = os.path.join(syncerroot, "data")

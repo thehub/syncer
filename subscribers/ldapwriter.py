@@ -110,33 +110,25 @@ class LDAPWriter(bases.SubscriberBase):
     onUserDel.block = True
 
     @ldapfriendly
-    def onAssignRoles(self, username, groupdata):
+    def onAssignRoles(self, username, hub_id, level):
         """
         When user is assigned new roles
         All previous roles would replaced with new set of roles.
         """
-        # groupdata -> [(hub_id1, level1), (hub_id2, level2), ...]
-        # Add global user ref. to appropriate roles.level
+        print username, hub_id, level
         userdn = globaluserdn % username
         conn = self.conn
-        levelsearch = conn.search_s("ou=hubs,o=the-hub.net", ldap.SCOPE_SUBTREE, \
-            '(&(objectClass=hubLocalRole)(member=uid=%s,ou=users,o=the-hub.net))' % username, None, 0)
-        oldleveldns = [l[0] for l in levelsearch]
-        # 1. Add new roles
-        for (hub_id, level) in groupdata:
-            dn = leveldn % (level, hub_id)
-            if dn in oldleveldns: # add only if required
-                oldleveldns.remove(dn) # promote old role -> new role
-            else:
-                conn.modify_s(dn, [(ldap.MOD_ADD, "member", userdn)])
-        # 2. Remove old roles
-        for dn in oldleveldns:
-            conn.modify_s(dn, [ldap.MOD_DELETE, "member", userdn])
-        # 3. Add role references as globaluser's hubMemberOf attribute
-        myhubs = list(set([tup[0] for tup in groupdata]))
-        mod_list = [(ldap.MOD_ADD, "hubMemberOf", myhubs)]
-        conn.modify_s(userdn, mod_list)
-        return True
+        dn = leveldn % (level, hub_id)
+        # Add new roles
+        try:
+            conn.modify_s(dn, [(ldap.MOD_ADD, "member", userdn)])
+        except ldap.TYPE_OR_VALUE_EXISTS, err:
+            pass
+        # Add role references as globaluser's hubMemberOf attribute
+        try:
+            conn.modify_s(userdn, [(ldap.MOD_ADD, "hubMemberOf", hub_id)])
+        except ldap.TYPE_OR_VALUE_EXISTS, err:
+            pass
     onAssignRoles.block = True
 
     @ldapfriendly

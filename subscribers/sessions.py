@@ -18,11 +18,6 @@ class SessionKeeper(dict, bases.SubscriberBase):
         context = utils.getContext()
         del self[context.cred]
 
-    def rollback(self, *args, **kw):
-        context = utils.getContext()
-        if context.eventname == "onSignon":
-            del self[context.cred]
-        
     def onSignon(self, username, *args, **kw):
         self.removeStaleSessions()
         existing_session = self.getUserSession(username)
@@ -38,7 +33,6 @@ class SessionKeeper(dict, bases.SubscriberBase):
             session = newsession
             self[cred] = session
         return session['cred']
-    onSignon.rollback = rollback
     onSignon.block = True
 
     def onSignoff(self):
