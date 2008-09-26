@@ -1,9 +1,7 @@
 try:
     import functools
-    import hashlib
 except:
     import compat as functools
-    hashlib = functools
 
 import cookielib, cPickle
 
@@ -11,10 +9,6 @@ import Pyro.core
 import Pyro.errors
 
 import errors, config
-
-h = hashlib.sha1("hubplus")
-h.update(file("/proc/cpuinfo").read())
-apptoken = h.hexdigest()
 
 class SyncerClient(object):
     def __init__(self, appname, sessiongetter):
@@ -31,9 +25,6 @@ class SyncerClient(object):
 
     def isSyncerRequest(self, user_agent):
         return user_agent == config.user_agent
-
-    def exchangeTokens(self):
-        return self.onReceiveApptoken(self.appname, apptoken)
 
     def publishEvent(self, eventname, syncertoken, *args, **kw):
         syncer = Pyro.core.getProxyForURI(config.syncer_uri)

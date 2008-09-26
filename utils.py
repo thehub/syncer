@@ -1,73 +1,41 @@
-import os, copy, cPickle
+import os
 import logging.handlers
 import cookielib
 import Cookie
 import time
 import smtplib
 import string
+import elixir
 
 import config
-
-class Context(object):
-    def __init__(self, results, cred, eventname):
-        self.results = results
-        self.cred = cred
-        self.eventname = eventname
-    def __str__(self):
-        return '\n'.join(("%-10s:%s" % (k, getattr(self, k)) for k in self.__dict__ if k[0] is not '_'))
-    def __repr__(self):
-        return '\n'.join(("%-10s:%s" % (k, getattr(self, k)) for k in self.__dict__ if k[0] is not '_'))
-    
+   
 def pushToBuiltins(name, val):
     __builtins__[name] = val
 
 def setupLogging():
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s %(levelname)-8s:%(funcName)s: %(message)s', datefmt="%H:%M:%S")
 
     if config.__syncerdebug__:
-        formatter = logging.Formatter('%(levelname)-8s: %(funcName)s: %(message)s')
         logger.setLevel(logging.DEBUG)
         console = logging.StreamHandler()
         console.setFormatter(formatter)
         console.setLevel(logging.DEBUG)
         logger.addHandler(console)
 
-    flog = logging.handlers.RotatingFileHandler(os.path.join(config.logdir + "syncer.log"), 'a', 1024 * 1024, 10)
+    flog = logging.handlers.RotatingFileHandler(os.path.join(config.logdir, "syncer.log"), 'a', 1024 * 1024, 10)
     flog.setLevel(logging.INFO)
+    flog.setFormatter(formatter)
     logger.addHandler(flog)
     pushToBuiltins("logger", logger)
+    logger.info("Syncer Logger initialized")
 
 def setupDirs():
-    datadir = os.path.join(config.syncerroot, "data")
     logdir = os.path.join(config.syncerroot, "logs")
-    for path in (datadir, logdir):
+    for path in (logdir,):
         if not os.path.exists(path): os.makedirs(path)
     
-getContext = lambda: syncer_tls.context
-
-class PList(list):
-    def __init__(self, path):
-        self.path = path
-        list.__init__(self)
-        self.load()
-    def dump(self):
-        file(self.path, 'w').write(cPickle.dumps(list(self), cPickle.HIGHEST_PROTOCOL))
-        return True
-    def load(self):
-        if os.path.exists(self.path):
-            data = cPickle.load(file(self.path))
-            for x in data:
-                self.put(x)
-    def put(self, what):
-        self.append(what)
-        return True
-    def hasBacklog(self, appname):
-        for tr in self:
-            if appname in tr[-1]:
-                return True
-        return False
-
 # Inspiration => http://docs.turbogears.org/1.0/ConvertCookies
 
 attrs = 'expires', 'path', 'comment', 'domain', 'secure', 'version'
@@ -185,7 +153,6 @@ def readConfigSafe(path):
         else: value = [n.value for n in x.asList()[1].nodes]
         d[name] = value
     return d
-
 
 if __name__ == '__main__':
     sc = Cookie.SimpleCookie()

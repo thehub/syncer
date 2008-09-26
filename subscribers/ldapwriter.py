@@ -32,18 +32,94 @@ def addAttrs(*ocnames):
 
 isHubOC = lambda oc: oc.names[0].startswith('hub')
 all_ocs = [schema.get_obj(ldap.schema.ObjectClass, oid) for oid in schema.listall(ldap.schema.ObjectClass)]
+all_attrs = [schema.get_obj(ldap.schema.AttributeType, oid) for oid in schema.listall(ldap.schema.AttributeType)]
+multivalue_attrs = tuple (itertools.chain(*[x.names for x in all_attrs if not x.single_value]))
+
 hub_ocs = [oc for oc in all_ocs if isHubOC(oc)]
 hubocnames_and_attrs = dict([(oc.names[0], tuple(getAttrs(oc, []))) for oc in hub_ocs])
 #aux_attrs_and_ocnames = dict([(hubocnames_and_attrs[oc.names[0]], oc.names[0]) for oc in hub_ocs if oc.kind == 2])
 oc_entries = dict([(oc.names[0], (oc.names + oc.sup)) for oc in hub_ocs])
 
 conn.unbind_s()
-del all_ocs, conn, isHubOC
+del all_ocs, conn, isHubOC, schema, all_attrs
 
+# LDAP Proxy
+MOD_ADD, MOD_DELETE, MOD_REPLACE = ldap.MOD_ADD, ldap.MOD_DELETE, ldap.MOD_REPLACE
+subscriber_name = "ldapwriter"
+
+class RBMap:
+    add_s = "delete_s"
+    delete_s = "add_s"
+    mod_flags = dict (MOD_ADD = MOD_DELETE, MOD_DELETE = MOD_ADD, MOD_REPLACE = MOD_REPLACE)
+    def __getitem__(self, k):
+        return getattr(self, k)
+
+rev_map = RBMap()
+
+class Proxy(object):
+    def __init__(self):
+        """
+        """
+    def connect(self, u, p):
+        """
+        """
+        conn = ldap.ldapobject.ReconnectLDAPObject(ldap_uri)
+        conn.simple_bind_s(u, p)
+        self._conn = conn
+        return self
+
+    def add_s(self, *args, **kw):
+        """
+        """
+        result = ldap.add_s(*args, **kw)
+        dn, mod_list = args
+        rdn, basedn = dn.split(',', 1)
+        data = list(conn.search_s(basedn, ldap.SCOPE_ONELEVEL, '(%s)' % rdn, ['*'])[0][1].items())
+        rbdata = (rev_map.add_s, dn, data)
+        currentTransaction().rollback_data.append(rbdata)
+        return result
+
+    def modify_s(self, *args, **kw):
+        dn, mod_list = args
+        sorter = lambda x: x[1]
+        mod_list.sort(key=sorter)
+        grouped = itertools.groupby(mod_list, sorter)
+        byattrs = dict([(grp[0], grp[1]) for  grp in grouped])
+        rdn, basedn = dn.split(',', 1)
+
+        if ldap.MOD_DELETE in [action[0] for action in byattrs.values()]:
+            old_values = self._conn.search_s(basedn, ldap.SCOPE_ONELEVEL, '(%s)' % rdn, ['*'])
+        
+        data = []
+        for attr, actions in byattrs.items():
+            old_value = None
+            flags = [action[0] for action in actions]
+            if ldap.MOD_DELETE in flags:
+                old_value = old_values[attr]
+            new_value = [v for v in actions if action[0] == ldap.MOD_ADD][0]
+            data.append((rev_map.modify_s, dn, (rev_map[action[0]], old_value, new_value)))
+
+        result = ldap.modify_s(*args, **kw)
+        rbdata = RollbackData(subscriber_name=subscriber_name, data=data)
+        currentTransaction().rollback_data.append(rbdata)
+        return result
+
+    def delete_s(self, *args, **kw):
+        """
+        """
+        result = ldap.delete_s(*args, **kw)
+        dn, mod_list = args
+        rdn, basedn = dn.split(',', 1)
+        data = list(conn.search_s(basedn, ldap.SCOPE_ONELEVEL, '(%s)' % rdn, ['*'])[0][1].items())
+        rbdata = (rev_map.delete_s, dn, data)
+        currentTransaction().rollback_data.append(rbdata)
+        return result
+
+# LDAP Events
 class LDAPWriter(bases.SubscriberBase):
 
     def getConn(self):
-        return sessions.current['ldapconn']
+        return currentSession()['ldapconn']
 
     conn = property(getConn)
         
@@ -55,7 +131,7 @@ class LDAPWriter(bases.SubscriberBase):
         else:
             dn = globaluserdn % u
         conn.simple_bind_s(dn, p)
-        sessions.current['ldapconn'] = conn
+        currentSession()['ldapconn'] = conn
         return True
     onSignon.block = True
 
@@ -180,3 +256,5 @@ class LDAPWriter(bases.SubscriberBase):
         self.conn.add_s(dn, add_record)
         return True
     onRoleAdd.block = True
+
+

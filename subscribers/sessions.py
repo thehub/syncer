@@ -15,8 +15,7 @@ class SessionKeeper(dict, bases.SubscriberBase):
         return bool(sid) and sid in self
 
     def destroyThisSession(self, sid):
-        context = utils.getContext()
-        del self[context.cred]
+        del self[syncer_tls.sid]
 
     def onSignon(self, username, *args, **kw):
         self.removeStaleSessions()
@@ -26,25 +25,24 @@ class SessionKeeper(dict, bases.SubscriberBase):
             session = existing_session
         else:
             logger.debug("creating new session for %s" % username)
-            context = utils.getContext()
-            cred = context.cred
-            newsession = dict (cred = cred, username = username)
+            sid = syncer_tls.sid
+            newsession = dict (sid = sid, username = username)
             newsession['last_seen'] = datetime.datetime.now()
             session = newsession
-            self[cred] = session
-        return session['cred']
+            self[sid] = session
+        return session['sid']
     onSignon.block = True
 
     def onSignoff(self):
-        context = utils.getContext()
-        if context.cred in self:
+        sid = syncer_tls.sid
+        if sid in self:
             self.destroyThisSession()
         else:
-            logger.warn("session %s does not exist, possibly user has signed out from elsewhere" % context.cred)
+            logger.warn("session %s does not exist, possibly user has signed out from elsewhere" % sid)
 
     def onAnyEvent(self, *args, **kw):
-        cred = utils.getContext().cred
-        if not self.validate(cred):
+        sid = syncer_tls.sid
+        if not self.validate(sid):
             errors.raiseError(errors.sessionnotfound)
         return True
     onAnyEvent.block = True
@@ -53,20 +51,20 @@ class SessionKeeper(dict, bases.SubscriberBase):
         if eventname == "onSignon":
             ses = self.getUserSession(args[0])
             if ses:
-                return ses['cred']
-        return os.urandom(21).encode('hex')
+                return ses['sid']
+            else:
+                while True:
+                    visit_id = os.urandom(21).encode('hex')
+                    if visit_id not in self:
+                        return visit_id
 
     def onReceiveAuthcookies(self, appname, username, cookies):
         cj = utils.create_cookiejar(cookies)
-        session = self.current
+        session = currentSession()
         if not 'authcookies' in session:
             session['authcookies'] = dict()
-        self.current['authcookies'][appname] = cj
-        self.current['username'] = username
-
-    def getCurrentSession(self):
-        context = utils.getContext()
-        return self[context.cred]
+        currentSession()['authcookies'][appname] = cj
+        currentSession()['username'] = username
 
     def removeStaleSessions(self):
         now = datetime.datetime.now()
@@ -82,8 +80,6 @@ class SessionKeeper(dict, bases.SubscriberBase):
                 return session
         return None
 
-    current = property(getCurrentSession)
-
     onAnyEvent.block = True
 
     def __str__(self):
@@ -91,3 +87,6 @@ class SessionKeeper(dict, bases.SubscriberBase):
 
     def __repr__(self):
         return "<sessions: %s>" % super(self.__class__, self).__repr__()
+
+def currentSession():
+    return sessions.get(syncer_tls.sid, None)

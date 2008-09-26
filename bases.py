@@ -4,7 +4,7 @@ from Queue import Queue
 import twill
 import Pyro.core
 
-import errors, config, utils
+import errors, config, utils, transactions
 
 picklables = (int, str, dict, tuple, list, Exception, float, long, set, bool, type(None))
 
@@ -13,7 +13,7 @@ class SubscriberBase(object):
         self.name = name.replace(" ", "_")
         self.current_tasks = dict()
         self.adminemail = config.subscriber_adminemail
-        self.ignore_trdb = False
+        self.ignore_old_failures = False
         all_subscribers[name] = self
 
 class WebApp(SubscriberBase):
@@ -84,7 +84,7 @@ class Syncer(Pyro.core.ObjBase):
     def __init__(self, *args, **kw):
         Pyro.core.ObjBase.__init__(self, *args, **kw)
         self.events = dict()
-    
+
     def __getattr__(self, eventname):
         if eventname not in self.events:
             event = Event(eventname)
@@ -100,7 +100,7 @@ class Event(object):
         self.subscribers = []
         self.argsfilterer = lambda args, kw: (args, kw)
         self.join = config.defaults.event_join
-        self.ignore_trdb = False
+        self.disable_rollback = False
 
     def addSubscriber(self, subscriber):
         handler = getattr(subscriber, self.name, getattr(subscriber, "onAnyEvent", None))
@@ -118,9 +118,10 @@ class Event(object):
     def addArgsFilter(self, f):
         self.argsfilterer = f
         
-    def runHandler(self, context, f, args, kw, subscriber, th_q):
+    def runHandler(self, sid, transaction, f, args, kw, subscriber, th_q):
         attempts = getattr(f, 'attempts', 2)
-        syncer_tls.context = context
+        syncer_tls.transaction = transaction
+        syncer_tls.sid = sid
         try:
             for attempt in range(attempts):
                 is_last_attempt = ((attempt + 1) == attempts)
@@ -130,7 +131,7 @@ class Event(object):
                         err = "Unpicklable result: %s" % ret
                         logger.error(err)
                         raise Exception(err)
-                    context.results[subscriber.name] = dict(appname = subscriber.name, retcode = errors.success, result = ret)
+                    transaction.results[subscriber.name] = dict(appname = subscriber.name, retcode = errors.success, result = ret)
                     break
                 except Exception, err:
                     #raise
@@ -146,7 +147,7 @@ class Event(object):
                             err = str(err)
                             logger.warn("Unpicklable exception: %s" % str(err))
                         retcode = (errors.app_write_failed, dict(appname=subscriber.name))
-                        context.results[subscriber.name] = dict(appname = subscriber.name, retcode = retcode, result = err)
+                        transaction.results[subscriber.name] = dict(appname = subscriber.name, retcode = retcode, result = err)
                         break
                     else:
                         print "before attempt #%d sleeping for 2 secs" % (attempt + 1)
@@ -155,15 +156,15 @@ class Event(object):
             th_q.get()
             th_q.task_done()
 
-    def runInThread(self, context, subscriber, args, kw, th_q, block=False):
+    def runInThread(self, sid, transaction, subscriber, args, kw, th_q, block=False):
         logger.info("%s %s: starting (block=%s)" % (subscriber.name, self.name, block))
-        if not (subscriber.ignore_trdb or self.ignore_trdb) and trdb.hasBacklog(subscriber.name):
+        if not (subscriber.ignore_old_failures or self.disable_rollback) and transactions.hasFailedBefore(subscriber.name):
             err = errors.getError(errors.app_backlog_not_empty, appname = subscriber.name)
-            context.results[subscriber.name] = dict(retcode = errors.app_backlog_not_empty, appname = subscriber.name, result = err)
+            transaction.results[subscriber.name] = dict(retcode = errors.app_backlog_not_empty, appname = subscriber.name, result = err)
             logger.error(errors.err2str(err))
         else:
             f = getattr(subscriber, self.name, getattr(subscriber, "onAnyEvent", None))
-            th = threading.Thread(target=self.runHandler, args=(context, f, args, kw, subscriber, th_q))
+            th = threading.Thread(target=self.runHandler, args=(sid, transaction, f, args, kw, subscriber, th_q))
             th_q.put(subscriber.name)
             if block:
                 th.run()
@@ -171,61 +172,57 @@ class Event(object):
             else:
                 th.start()
 
-    def __call__(self, app_name, cred, *args, **kw):
+    def __call__(self, app_name, sid, *args, **kw):
         logger.info('Syncer publishing event: \"(%s)%s\"' % (app_name, self.name))
         args = [cPickle.loads(arg) for arg in args]
         kw = dict(((cPickle.loads(k), cPickle.loads(v)) for (k,v) in kw.items()))
-        results = dict ()
         th_q = Queue()
         __failed = False
 
-        if not cred:
-            cred = sessions.genVisitId(self.name, args, kw)
-        if not cred:
-            cred = self.genVisitId()
-            while cred in sessions:
-                cred = self.genVisitId()
-
-        context = utils.Context(results, cred, self.name)
+        if not sid:
+            sid = sessions.genVisitId(self.name, args, kw)
+        
+        transaction = transactions.newTransaction(self.name, *self.argsfilterer(args, kw))
 
         for subscriber in self.subscribers_s:
             if app_name == subscriber.name: continue
-            self.runInThread(context, subscriber, args, kw, th_q, True)
-            if errors.hasFailed(results):
+            self.runInThread(sid, transaction, subscriber, args, kw, th_q, True)
+            if errors.hasFailed(transaction.results):
                 __failed = True
                 break
         if not __failed:
             for subscriber in self.subscribers:
                 if not app_name == subscriber.name:
-                    self.runInThread(context, subscriber, args, kw, th_q)
+                    self.runInThread(sid, transaction, subscriber, args, kw, th_q)
 
         if self.join:
             print "I'm asked to wait"
             th_q.join()
             print "My wait is over"
-            self.onFailure(context, th_q, args, kw)
+            self.onFailure(transaction, th_q, args, kw)
         else:
-            threading.Thread(target=self.onFailure, args=(context, th_q, args, kw)).start()
+            threading.Thread(target=self.onFailure, args=(transaction, th_q, args, kw)).start()
 
         print '========================================'
         for (sid, session) in sessions.items():
             print sid, session['username'], session['ldapconn']
-        print results
+        print transaction.results
         print '========================================'
-        return results
+        transaction.state = 2
+        return transaction.t_id, transaction.results
 
-    def onFailure(self, context, th_q, args, kw):
+    def onFailure(self, transaction, th_q, args, kw):
         th_q.join()
-        results = context.results
+        results = transaction.results
 
         if errors.hasFailed(results):
+            "failed !!!"
+            transaction.state = 2
             eventname = self.name
-            args, kw = self.argsfilterer(args, kw)
-            now = datetime.datetime.now()
             failed_apps = dict ()
-            username = sessions[context.cred]['username']
+            username = transaction.owner
 
-            rollback_candidates = [s for s in self.subscribers_s + self.subscribers if not s.ignore_trdb and s.name in results]
+            rollback_candidates = [s for s in self.subscribers_s + self.subscribers if not s.ignore_old_failures and s.name in results]
             logger.debug("Begin rollback")
 
             for subscriber in rollback_candidates:
@@ -247,5 +244,4 @@ class Event(object):
                         err = utils.sendAlert(locals())
                         if err: logger.warn(err)
 
-            trdb.put((eventname, now, username, args, kw, failed_apps))
-            trdb.dump()
+            transaction.delete()

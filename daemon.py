@@ -5,35 +5,43 @@ import Pyro
 
 import utils
 from bases import *
+import transactions
 import subscribers
 
 utils.setupDirs()
 utils.setupLogging()
 
-trdb = utils.PList(config.trdbpath)
-utils.pushToBuiltins("trdb", trdb)
 utils.pushToBuiltins("all_subscribers", dict ())
 utils.pushToBuiltins("syncer_tls", threading.local())
+utils.pushToBuiltins("currentTransaction", transactions.currentTransaction)
+utils.pushToBuiltins("currentSession", subscribers.sessions.currentSession)
 
 syncer = Syncer()
 sessionkeeper = subscribers.sessions.SessionKeeper("sessionkeeper")
-sessionkeeper.ignore_trdb = True
+sessionkeeper.ignore_old_failures = True
 utils.pushToBuiltins("sessions", sessionkeeper)
 
 #hubspace = subscribers.hubspace.HubSpace("members.the-hub.net", "hubspace")
 hubspace = subscribers.hubspace.HubSpace("localhost:8080", "hubspace")
 hubspace.adminemail = "shon@localhost"
 ldapwriter = subscribers.ldapwriter.LDAPWriter("ldapwriter")
-ldapwriter.ignore_trdb = True
+ldapwriter.ignore_old_failures = True
+transactionmgr = subscribers.trmgr.TransactionMgr("transactionmgr")
+transactionmgr.ignore_old_failures = True
 
 syncer.onSignon.addSubscriber(sessionkeeper)
 syncer.onSignon.addSubscriber(ldapwriter)
 syncer.onSignon.addSubscriber(hubspace)
 syncer.onSignon.addArgsFilter(lambda args, kw: ((args[0], utils.Masked("Secret"), utils.Masked("cookies")), kw))
-syncer.onSignon.ignore_trdb = True
+syncer.onSignon.disable_rollback = True
 syncer.onSignon.join = True
 
 syncer.onReceiveAuthcookies.join = True
+
+syncer.onSignoff.addSubscriber(hubspace)
+syncer.onSignoff.addSubscriber(sessionkeeper)
+syncer.onSignoff.disable_rollback = True
+syncer.onSignoff.join = True
 
 syncer.onUserMod.addSubscriber(sessionkeeper)
 syncer.onUserMod.addSubscriber(hubspace)
