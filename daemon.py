@@ -29,18 +29,22 @@ ldapwriter.ignore_old_failures = True
 transactionmgr = subscribers.trmgr.TransactionMgr("transactionmgr")
 transactionmgr.ignore_old_failures = True
 
+syncer.completeTransactions.addSubscriber(transactionmgr)
+syncer.completeTransactions.transactional = False
+syncer.rollbackTransactions.addSubscriber(transactionmgr)
+syncer.rollbackTransactions.transactional = False
 syncer.onSignon.addSubscriber(sessionkeeper)
 syncer.onSignon.addSubscriber(ldapwriter)
 syncer.onSignon.addSubscriber(hubspace)
 syncer.onSignon.addArgsFilter(lambda args, kw: ((args[0], utils.Masked("Secret"), utils.Masked("cookies")), kw))
-syncer.onSignon.disable_rollback = True
+syncer.onSignon.transactional = False
 syncer.onSignon.join = True
 
 syncer.onReceiveAuthcookies.join = True
 
 syncer.onSignoff.addSubscriber(hubspace)
 syncer.onSignoff.addSubscriber(sessionkeeper)
-syncer.onSignoff.disable_rollback = True
+syncer.onSignoff.transactional = False
 syncer.onSignoff.join = True
 
 syncer.onUserMod.addSubscriber(sessionkeeper)

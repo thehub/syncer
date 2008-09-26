@@ -7,8 +7,10 @@ import errors
 now = datetime.datetime.now
 
 metadata.bind = "sqlite:///trdb.sqlite"
-metadata.bind.echo = True
-scoped_session(sessionmaker(autoflush=True, transactional=False, autocommut=True))
+#metadata.bind.echo = True
+#session = sessionmaker(autoflush=True, transactional=False, autocommit=True)
+
+commit = objectstore.flush
 
 max_tid = 1024 * 10
 
@@ -28,8 +30,12 @@ class Transaction(Entity):
         return '\n'.join(("%-10s:%s" % (k, getattr(self, k)) for k in self.__dict__ if k[0] is not '_'))
     def __repr__(self):
         return '\n'.join(("%-10s:%s" % (k, getattr(self, k)) for k in self.__dict__ if k[0] is not '_'))
+
+class DummyTransaction(object):
+    def __init__(self, **kw):
+        self.__dict__.update(kw)
  
-def newTransaction(event_name, args, kw):
+def newTransaction(event, args, kw):
     t_ids = [tr.t_id for tr in Transaction.query.all()]
     if not t_ids:
         t_id = 1
@@ -46,8 +52,12 @@ def newTransaction(event_name, args, kw):
                 while xrange(max_tid + 1):
                     if t_id not in t_ids:
                         break
-    logger.debug("Transaction %s: Begin" % t_id)
-    return Transaction(t_id=t_id, event_name=event_name, args=args, kw=kw, results={})
+    logger.debug("Transaction (%s): Begin" % event.transactional and t_id or "dummy")
+    if event.transactional:
+        factory = Transaction
+    else:
+        factory = DummyTransaction
+    return factory(t_id=t_id, event_name=event.name, args=args, kw=kw, results={})
 
 class RollbackData(Entity):
     subscriber_name = Field(Unicode)
@@ -66,7 +76,7 @@ def hasFailedBefore(subscriber_name):
 
 setup_all()
 create_all()
-objectstore.flush()
+commit()
 
 if __name__ == '__main__':
     tr = newTransaction("someevent", [], {})
@@ -75,4 +85,3 @@ if __name__ == '__main__':
     tr.rollback_data.append(rollback_data)
     rollback_data = RollbackData(subscriber_name="subscriber2", data={})
     tr.rollback_data.append(rollback_data)
-    objectstore.flush()

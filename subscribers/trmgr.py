@@ -21,7 +21,7 @@ class TransactionMgr(bases.SubscriberBase):
 
     def completeTransactions(self, tr_list):
         for t_id in tr_list:
-            tr = Transaction.query.filter_by(t_id=t_id)
+            tr = Transaction.query.filter_by(t_id=t_id)[0]
             tr.delete()
     completeTransactions.block = False
 
@@ -32,16 +32,19 @@ class TransactionMgr(bases.SubscriberBase):
             logger.info("Transaction %s: Begin rollback of event %s" % (t_id, tr.event_name))
             for rbdata in tr.rollback_data:
                 logger.info("Transaction %s: attempting rollback for %s(%s)" % (t_id, tr.event_name, rbdata.subscriber_name))
-                if not rbdata.subscriber_name in subscribers:
+                if not rbdata.subscriber_name in all_subscribers:
                     logger.warn("Transaction %s: subscriber %s could not be instantiated" % (t_id, rbdata.subscriber_name))
                     continue
                 subscriber = all_subscribers[rbdata.subscriber_name]
-                handler = getattr(getattr(subscriber, tr.event_name), 'rollback')
-                try:
-                    handler(rbdata)
-                except Exception, err:
-                    logger.error("Transaction %s: %s(%s) rollback failed: %s" % (t_id, tr.event_name, rbdata.subscriber_name, err))
-                    # alert
+                eventhandler = getattr(subscriber, tr.event_name, None)
+                if eventhandler:
+                    rbhandler = getattr(eventhandler, 'rollback', None)
+                    if rbhandler:
+                        try:
+                            handler(rbdata)
+                        except Exception, err:
+                            logger.error("Transaction %s: %s(%s) rollback failed: %s" % (t_id, tr.event_name, rbdata.subscriber_name, err))
+                            # TODO alert
             logger.info("Transaction %s: Complete rollback of event %s" % (t_id, tr.event_name))
             for rbdata in tr.rollback_data: # TODO CASCADE
                 rbdata.delete()

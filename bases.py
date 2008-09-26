@@ -100,7 +100,7 @@ class Event(object):
         self.subscribers = []
         self.argsfilterer = lambda args, kw: (args, kw)
         self.join = config.defaults.event_join
-        self.disable_rollback = False
+        self.transactional = True
 
     def addSubscriber(self, subscriber):
         handler = getattr(subscriber, self.name, getattr(subscriber, "onAnyEvent", None))
@@ -158,7 +158,7 @@ class Event(object):
 
     def runInThread(self, sid, transaction, subscriber, args, kw, th_q, block=False):
         logger.info("%s %s: starting (block=%s)" % (subscriber.name, self.name, block))
-        if not (subscriber.ignore_old_failures or self.disable_rollback) and transactions.hasFailedBefore(subscriber.name):
+        if not (subscriber.ignore_old_failures or not self.transactional) and transactions.hasFailedBefore(subscriber.name):
             err = errors.getError(errors.app_backlog_not_empty, appname = subscriber.name)
             transaction.results[subscriber.name] = dict(retcode = errors.app_backlog_not_empty, appname = subscriber.name, result = err)
             logger.error(errors.err2str(err))
@@ -182,11 +182,13 @@ class Event(object):
         if not sid:
             sid = sessions.genVisitId(self.name, args, kw)
         
-        transaction = transactions.newTransaction(self.name, *self.argsfilterer(args, kw))
+        transaction = transactions.newTransaction(self, *self.argsfilterer(args, kw))
+        transactions.commit()
 
         for subscriber in self.subscribers_s:
             if app_name == subscriber.name: continue
             self.runInThread(sid, transaction, subscriber, args, kw, th_q, True)
+            transactions.commit()
             if errors.hasFailed(transaction.results):
                 __failed = True
                 break
@@ -194,6 +196,7 @@ class Event(object):
             for subscriber in self.subscribers:
                 if not app_name == subscriber.name:
                     self.runInThread(sid, transaction, subscriber, args, kw, th_q)
+                    transactions.commit()
 
         if self.join:
             print "I'm asked to wait"
@@ -202,6 +205,7 @@ class Event(object):
             self.onFailure(transaction, th_q, args, kw)
         else:
             threading.Thread(target=self.onFailure, args=(transaction, th_q, args, kw)).start()
+            transactions.commit()
 
         print '========================================'
         for (sid, session) in sessions.items():
@@ -209,6 +213,7 @@ class Event(object):
         print transaction.results
         print '========================================'
         transaction.state = 2
+        transactions.commit()
         return transaction.t_id, transaction.results
 
     def onFailure(self, transaction, th_q, args, kw):

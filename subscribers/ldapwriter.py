@@ -2,7 +2,7 @@ import itertools
 import datetime
 import ldap
 import ldap.schema
-import bases, utils
+import bases, utils, transactions
 from helpers.ldap import ldapfriendly, ldapSafe
 
 uri = "ldap://localhost"
@@ -50,23 +50,22 @@ subscriber_name = "ldapwriter"
 class RBMap:
     add_s = "delete_s"
     delete_s = "add_s"
-    mod_flags = dict (MOD_ADD = MOD_DELETE, MOD_DELETE = MOD_ADD, MOD_REPLACE = MOD_REPLACE)
+    modify_s = "modify_s"
+    MOD_ADD = MOD_DELETE
+    MOD_DELETE = MOD_ADD
+    MOD_REPLACE = MOD_REPLACE
     def __getitem__(self, k):
         return getattr(self, k)
 
 rev_map = RBMap()
 
 class Proxy(object):
-    def __init__(self):
+    def __init__(self, u, p):
         """
         """
-    def connect(self, u, p):
-        """
-        """
-        conn = ldap.ldapobject.ReconnectLDAPObject(ldap_uri)
+        conn = ldap.ldapobject.ReconnectLDAPObject(uri)
         conn.simple_bind_s(u, p)
         self._conn = conn
-        return self
 
     def add_s(self, *args, **kw):
         """
@@ -74,8 +73,7 @@ class Proxy(object):
         result = ldap.add_s(*args, **kw)
         dn, mod_list = args
         rdn, basedn = dn.split(',', 1)
-        data = list(conn.search_s(basedn, ldap.SCOPE_ONELEVEL, '(%s)' % rdn, ['*'])[0][1].items())
-        rbdata = (rev_map.add_s, dn, data)
+        rbdata = (rev_map.add_s, dn)
         currentTransaction().rollback_data.append(rbdata)
         return result
 
@@ -84,33 +82,36 @@ class Proxy(object):
         sorter = lambda x: x[1]
         mod_list.sort(key=sorter)
         grouped = itertools.groupby(mod_list, sorter)
-        byattrs = dict([(grp[0], grp[1]) for  grp in grouped])
+        byattrs = dict([(grp[0], list(grp[1])) for  grp in grouped])
         rdn, basedn = dn.split(',', 1)
-
-        if ldap.MOD_DELETE in [action[0] for action in byattrs.values()]:
-            old_values = self._conn.search_s(basedn, ldap.SCOPE_ONELEVEL, '(%s)' % rdn, ['*'])
         
-        data = []
+        # 1. Backup old entry if reqd
+        if MOD_DELETE in [op[0] for op in mod_list]:
+            old_values = self._conn.search_s(basedn, ldap.SCOPE_ONELEVEL, '(%s)' % rdn, ['*'])
+            old_values = old_values[0][1]
+        # 2. Now actual LDAP operation. If we fail here we don't need rollback data
+        result = self._conn.modify_s(*args, **kw)
+        # 3. Generate ready to use mod_list based on flags and old/new values
+        data = [rev_map.modify_s, dn]
+        mod_list = []
         for attr, actions in byattrs.items():
-            old_value = None
             flags = [action[0] for action in actions]
-            if ldap.MOD_DELETE in flags:
-                old_value = old_values[attr]
-            new_value = [v for v in actions if action[0] == ldap.MOD_ADD][0]
-            data.append((rev_map.modify_s, dn, (rev_map[action[0]], old_value, new_value)))
-
-        result = ldap.modify_s(*args, **kw)
-        rbdata = RollbackData(subscriber_name=subscriber_name, data=data)
+            if MOD_ADD in flags:
+                mod_list.append((rev_map.MOD_ADD, action[1], action[2]))
+            if MOD_DELETE in flags:
+                mod_list.append((rev_map.MOD_DELETE, action[1], old_values[attr]))
+        # 4. save and hope that we will never need it
+        rbdata = transactions.RollbackData(subscriber_name=subscriber_name, data=data)
         currentTransaction().rollback_data.append(rbdata)
         return result
 
     def delete_s(self, *args, **kw):
         """
         """
-        result = ldap.delete_s(*args, **kw)
+        result = self._conn.delete_s(*args, **kw)
         dn, mod_list = args
         rdn, basedn = dn.split(',', 1)
-        data = list(conn.search_s(basedn, ldap.SCOPE_ONELEVEL, '(%s)' % rdn, ['*'])[0][1].items())
+        data = list(self._conn.search_s(basedn, ldap.SCOPE_ONELEVEL, '(%s)' % rdn, ['*'])[0][1].items())
         rbdata = (rev_map.delete_s, dn, data)
         currentTransaction().rollback_data.append(rbdata)
         return result
@@ -125,15 +126,30 @@ class LDAPWriter(bases.SubscriberBase):
         
     def onSignon(self, u, p, cookies):
         u, p = ldapSafe((u, p))
-        conn = ldap.ldapobject.ReconnectLDAPObject(uri)
         if u == "ldapadmin":
             dn = "uid=%s,o=the-hub.net" % u
         else:
             dn = globaluserdn % u
-        conn.simple_bind_s(dn, p)
+        conn = Proxy(dn, p)
         currentSession()['ldapconn'] = conn
         return True
     onSignon.block = True
+
+    def rollback(self, rbdata):
+        print rbdata
+        rb_errs = []
+        for entry in rbdata:
+            action, dn, modlist = entry
+            f = getattr(self.conn._conn, action)
+            logger.debug("LDAP Rollback: %s %s" % (dn, action))
+            try:
+                f(dn, modlist)
+            except Exception, err:
+                msg = "LDAP Rollback: %s %s" % (dn, action)
+                logger.error(msg)
+                rb_errs.append(msg)
+        if rb_errs:
+            raise Exception(rb_errs)
 
     @ldapfriendly
     def onUserAdd(self, username, udata):
@@ -256,5 +272,3 @@ class LDAPWriter(bases.SubscriberBase):
         self.conn.add_s(dn, add_record)
         return True
     onRoleAdd.block = True
-
-
