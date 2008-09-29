@@ -153,6 +153,7 @@ class Event(object):
                         print "before attempt #%d sleeping for 2 secs" % (attempt + 1)
                         time.sleep(getattr(f, 'attempt_interval', 2))
         finally:
+            transactions.session.remove()
             th_q.get()
             th_q.task_done()
 
@@ -171,6 +172,7 @@ class Event(object):
                 logger.info("%s %s: done\n" % (subscriber.name, self.name))
             else:
                 th.start()
+        transactions.commit()
 
     def __call__(self, app_name, sid, *args, **kw):
         logger.info('Syncer publishing event: \"(%s)%s\"' % (app_name, self.name))
@@ -182,13 +184,13 @@ class Event(object):
         if not sid:
             sid = sessions.genVisitId(self.name, args, kw)
         
+        transactions.commit()
         transaction = transactions.newTransaction(self, *self.argsfilterer(args, kw))
         transactions.commit()
 
         for subscriber in self.subscribers_s:
             if app_name == subscriber.name: continue
             self.runInThread(sid, transaction, subscriber, args, kw, th_q, True)
-            transactions.commit()
             if errors.hasFailed(transaction.results):
                 __failed = True
                 break
@@ -196,7 +198,6 @@ class Event(object):
             for subscriber in self.subscribers:
                 if not app_name == subscriber.name:
                     self.runInThread(sid, transaction, subscriber, args, kw, th_q)
-                    transactions.commit()
 
         if self.join:
             print "I'm asked to wait"
@@ -205,7 +206,6 @@ class Event(object):
             self.onFailure(transaction, th_q, args, kw)
         else:
             threading.Thread(target=self.onFailure, args=(transaction, th_q, args, kw)).start()
-            transactions.commit()
 
         print '========================================'
         for (sid, session) in sessions.items():

@@ -1,5 +1,4 @@
 import datetime
-from sqlalchemy.orm import scoped_session, sessionmaker
 from elixir import *
 
 import errors
@@ -8,9 +7,14 @@ now = datetime.datetime.now
 
 metadata.bind = "sqlite:///trdb.sqlite"
 #metadata.bind.echo = True
-#session = sessionmaker(autoflush=True, transactional=False, autocommit=True)
+#elixir.session = scoped_session(sessionmaker(autoflush=True, transactional=False, autocommit=True))
 
-commit = objectstore.flush
+def commit():
+    try:
+        session.flush()
+        session.commit()
+    except:
+        pass
 
 max_tid = 1024 * 10
 
@@ -36,27 +40,28 @@ class DummyTransaction(object):
         self.__dict__.update(kw)
  
 def newTransaction(event, args, kw):
-    t_ids = [tr.t_id for tr in Transaction.query.all()]
-    if not t_ids:
-        t_id = 1
-    else:
-        t_id = max(t_ids) + 1
-        if t_id >= max_tid:
-            trs = Transaction.query.filter(time < (now() - datetime.timedelta(180)))
-            for tr in trs:
-                t_id = tr.t_id
-                tr.delete()
-                logger.info("Transaction %s is deleted" % t_id)
-            if trs:
-                t_ids = [tr.id for tr in Transaction.query.all()]
-                while xrange(max_tid + 1):
-                    if t_id not in t_ids:
-                        break
-    logger.debug("Transaction (%s): Begin" % event.transactional and t_id or "dummy")
     if event.transactional:
         factory = Transaction
+        t_ids = [tr.t_id for tr in Transaction.query.all()]
+        if not t_ids:
+            t_id = 1
+        else:
+            t_id = max(t_ids) + 1
+            if t_id >= max_tid:
+                trs = Transaction.query.filter(time < (now() - datetime.timedelta(180)))
+                for tr in trs:
+                    t_id = tr.t_id
+                    tr.delete()
+                    logger.info("Transaction %s is deleted" % t_id)
+                if trs:
+                    t_ids = [tr.id for tr in Transaction.query.all()]
+                    while xrange(max_tid + 1):
+                        if t_id not in t_ids:
+                            break
     else:
         factory = DummyTransaction
+        t_id = 0
+    logger.debug("Transaction (%s): Begin" % event.transactional and t_id or "0 (dummy)")
     return factory(t_id=t_id, event_name=event.name, args=args, kw=kw, results={})
 
 class RollbackData(Entity):

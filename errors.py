@@ -23,7 +23,7 @@ def getClientError(err_tuple, **errdata):
     d = dict (appname = 'syncerclient')
     d['retcode'] = err_tuple
     d['result'] = getError(err_tuple, **errdata)
-    return dict (clienterror = d)
+    return -1, dict (clienterror = d)
 
 def isError(status):
     try:

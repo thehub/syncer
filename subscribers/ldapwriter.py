@@ -47,18 +47,6 @@ del all_ocs, conn, isHubOC, schema, all_attrs
 MOD_ADD, MOD_DELETE, MOD_REPLACE = ldap.MOD_ADD, ldap.MOD_DELETE, ldap.MOD_REPLACE
 subscriber_name = "ldapwriter"
 
-class RBMap:
-    add_s = "delete_s"
-    delete_s = "add_s"
-    modify_s = "modify_s"
-    MOD_ADD = MOD_DELETE
-    MOD_DELETE = MOD_ADD
-    MOD_REPLACE = MOD_REPLACE
-    def __getitem__(self, k):
-        return getattr(self, k)
-
-rev_map = RBMap()
-
 class Proxy(object):
     def __init__(self, u, p):
         """
@@ -70,10 +58,10 @@ class Proxy(object):
     def add_s(self, *args, **kw):
         """
         """
-        result = ldap.add_s(*args, **kw)
+        result = self._conn.add_s(*args, **kw)
         dn, mod_list = args
         rdn, basedn = dn.split(',', 1)
-        rbdata = (rev_map.add_s, dn)
+        rbdata = ("delete_s", dn)
         currentTransaction().rollback_data.append(rbdata)
         return result
 
@@ -92,14 +80,15 @@ class Proxy(object):
         # 2. Now actual LDAP operation. If we fail here we don't need rollback data
         result = self._conn.modify_s(*args, **kw)
         # 3. Generate ready to use mod_list based on flags and old/new values
-        data = [rev_map.modify_s, dn]
+        data = ["modify_s", dn]
         mod_list = []
         for attr, actions in byattrs.items():
             flags = [action[0] for action in actions]
             if MOD_ADD in flags:
-                mod_list.append((rev_map.MOD_ADD, action[1], action[2]))
+                mod_list.append((MOD_DELETE, action[1], action[2]))
             if MOD_DELETE in flags:
-                mod_list.append((rev_map.MOD_DELETE, action[1], old_values[attr]))
+                mod_list.append((MOD_ADD, action[1], old_values[attr]))
+        data.append(mod_list)
         # 4. save and hope that we will never need it
         rbdata = transactions.RollbackData(subscriber_name=subscriber_name, data=data)
         currentTransaction().rollback_data.append(rbdata)
@@ -112,11 +101,24 @@ class Proxy(object):
         dn, mod_list = args
         rdn, basedn = dn.split(',', 1)
         data = list(self._conn.search_s(basedn, ldap.SCOPE_ONELEVEL, '(%s)' % rdn, ['*'])[0][1].items())
-        rbdata = (rev_map.delete_s, dn, data)
+        rbdata = ("add_s", dn, data)
         currentTransaction().rollback_data.append(rbdata)
         return result
 
 # LDAP Events
+def rollback(rbdata):
+    conn = currentSession()['ldapconn']
+    action, dn, modlist = rbdata.data
+    f = getattr(conn._conn, action)
+    logger.debug("LDAP Rollback: %s %s" % (dn, action))
+    try:
+        f(dn, modlist)
+    except Exception, err:
+        msg = "LDAP Rollback: %s %s" % (dn, action)
+        logger.error(msg)
+        raise
+
+
 class LDAPWriter(bases.SubscriberBase):
 
     def getConn(self):
@@ -135,22 +137,6 @@ class LDAPWriter(bases.SubscriberBase):
         return True
     onSignon.block = True
 
-    def rollback(self, rbdata):
-        print rbdata
-        rb_errs = []
-        for entry in rbdata:
-            action, dn, modlist = entry
-            f = getattr(self.conn._conn, action)
-            logger.debug("LDAP Rollback: %s %s" % (dn, action))
-            try:
-                f(dn, modlist)
-            except Exception, err:
-                msg = "LDAP Rollback: %s %s" % (dn, action)
-                logger.error(msg)
-                rb_errs.append(msg)
-        if rb_errs:
-            raise Exception(rb_errs)
-
     @ldapfriendly
     def onUserAdd(self, username, udata):
         # Don't modify `udata` as we may call this method again on failure
@@ -168,6 +154,7 @@ class LDAPWriter(bases.SubscriberBase):
         self.conn.add_s(localuserdn % username, add_record)
         return True
     onUserAdd.block = True
+    onUserAdd.rollback = rollback
 
     @ldapfriendly
     def onUserMod(self, username, udata):
@@ -194,12 +181,14 @@ class LDAPWriter(bases.SubscriberBase):
                     conn.modify_s(localdn, mod_list[-1:])
         return True
     onUserMod.block = True
+    onUserMod.rollback = rollback
 
     @ldapfriendly
     def onUserDel(self, username, udata):
         #self.conn.delete....
         raise NotImplemented
     onUserDel.block = True
+    onUserDel.rollback = rollback
 
     @ldapfriendly
     def onAssignRoles(self, username, hub_id, level):
@@ -222,11 +211,13 @@ class LDAPWriter(bases.SubscriberBase):
         except ldap.TYPE_OR_VALUE_EXISTS, err:
             pass
     onAssignRoles.block = True
+    onAssignRoles.rollback = rollback
 
     @ldapfriendly
     def onRevokeRoles(self, username, groupdata):
         raise NotImplemented
     onRevokeRoles.block = True
+    onRevokeRoles.rollback = rollback
 
     @ldapfriendly
     def onHubAdd(self, hubid, hubdata):
@@ -246,6 +237,7 @@ class LDAPWriter(bases.SubscriberBase):
             self.conn.add_s(dn, add_record)
         return True
     onHubAdd.block = True
+    onHubAdd.rollback = rollback
 
     @ldapfriendly
     def onHubMod(self, hubid, hubdata):
@@ -259,16 +251,16 @@ class LDAPWriter(bases.SubscriberBase):
                 conn.modify_s(dn, mod_list[-1:])
         return True
     onHubMod.block = True
+    onHubMod.rollback = rollback
 
     @ldapfriendly
     def onRoleAdd(self, hubid, level, data):
         """
         When a new role is added for a hub, same as new group in HubSpace
         """
-        print data
         dn = leveldn % (level, hubid)
         add_record = [ ('objectClass', 'hubLocalRole'),] + [(k,v) for (k,v) in data]
-        print dn, add_record
         self.conn.add_s(dn, add_record)
         return True
     onRoleAdd.block = True
+    onRoleAdd.rollback = rollback

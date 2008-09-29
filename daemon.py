@@ -4,15 +4,16 @@ import threading
 import Pyro
 
 import utils
+
+utils.setupDirs()
+utils.setupLogging()
+utils.pushToBuiltins("all_subscribers", dict ())
+utils.pushToBuiltins("syncer_tls", threading.local())
+
 from bases import *
 import transactions
 import subscribers
 
-utils.setupDirs()
-utils.setupLogging()
-
-utils.pushToBuiltins("all_subscribers", dict ())
-utils.pushToBuiltins("syncer_tls", threading.local())
 utils.pushToBuiltins("currentTransaction", transactions.currentTransaction)
 utils.pushToBuiltins("currentSession", subscribers.sessions.currentSession)
 

@@ -16,7 +16,7 @@ class TransactionMgr(bases.SubscriberBase):
         """
 
     def onAnyEvent(self, *args, **kw):
-        return True
+        currentTransaction().owner = currentSession()['username']
     onAnyEvent.block = True
 
     def completeTransactions(self, tr_list):
@@ -27,7 +27,7 @@ class TransactionMgr(bases.SubscriberBase):
 
     def rollbackTransactions(self, tr_list):
         for t_id in tr_list:
-            tr = Transaction.query.filter_by(t_id=t_id)
+            tr = Transaction.query.filter_by(t_id=t_id)[0]
             tr.state = 3
             logger.info("Transaction %s: Begin rollback of event %s" % (t_id, tr.event_name))
             for rbdata in tr.rollback_data:
@@ -41,7 +41,7 @@ class TransactionMgr(bases.SubscriberBase):
                     rbhandler = getattr(eventhandler, 'rollback', None)
                     if rbhandler:
                         try:
-                            handler(rbdata)
+                            rbhandler(rbdata)
                         except Exception, err:
                             logger.error("Transaction %s: %s(%s) rollback failed: %s" % (t_id, tr.event_name, rbdata.subscriber_name, err))
                             # TODO alert
@@ -49,4 +49,5 @@ class TransactionMgr(bases.SubscriberBase):
             for rbdata in tr.rollback_data: # TODO CASCADE
                 rbdata.delete()
             tr.delete()
+            transactions.commit()
     rollbackTransactions.block = False
