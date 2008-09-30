@@ -14,7 +14,7 @@ class SessionKeeper(dict, bases.SubscriberBase):
     def validate(self, sid):
         return bool(sid) and sid in self
 
-    def destroyThisSession(self, sid):
+    def destroyThisSession(self):
         del self[syncer_tls.sid]
 
     def onSignon(self, username, *args, **kw):

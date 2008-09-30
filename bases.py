@@ -249,4 +249,4 @@ class Event(object):
                         err = utils.sendAlert(locals())
                         if err: logger.warn(err)
 
-            transaction.delete()
+        transaction.delete()

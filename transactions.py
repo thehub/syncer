@@ -38,6 +38,7 @@ class Transaction(Entity):
 class DummyTransaction(object):
     def __init__(self, **kw):
         self.__dict__.update(kw)
+    def delete(self): pass
  
 def newTransaction(event, args, kw):
     if event.transactional:
