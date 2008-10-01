@@ -46,7 +46,7 @@ def res2errstr(result):
     return '\n'.join([err2str(handler_res) for handler_res in result.values()])
 
 def err2str(err):
-    if isinstance(err, Exception):
+    if isinstance(err, (Exception, str)):
         return "Remote exception" + ''.join(Pyro.util.getPyroTraceback(err))
     err_tuple = err['retcode']
     err.update(intcode=err_tuple[0])

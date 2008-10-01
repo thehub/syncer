@@ -29,7 +29,7 @@ class WebApp(SubscriberBase):
 
     def onReceiveAuthcookies(self, appname, cookies):
         if appname == self.name:
-            session = sessions.current
+            session = currentSession()
             if 'authcookies' not in session:
                 session['authcookies'] = {appname: cookies}
             else:
@@ -39,7 +39,7 @@ class WebApp(SubscriberBase):
     onReceiveAuthcookies.block = True
 
     def makeHttpReq(self, url, formvars):
-        session = sessions.current
+        session = currentSession()
         cj = session['authcookies'][self.name]
         params = urllib.urlencode(formvars)
         opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
@@ -54,7 +54,7 @@ class WebApp(SubscriberBase):
         return cj, content
 
     def readForm(self, url):
-        session = sessions.current
+        session = currentSession()
         authcookies = session.get('authcookies', None)
         cj = None
         if authcookies:
@@ -143,7 +143,7 @@ class Event(object):
                     print '================'
                     logger.error("%s %s #%d: failed with error (%s)" % (subscriber.name, self.name, attempt, str(err)))
                     if is_last_attempt:
-                        if not type(err) in picklables:
+                        if not type(err) in picklables or not isinstance(err, picklables):
                             err = str(err)
                             logger.warn("Unpicklable exception: %s" % str(err))
                         retcode = (errors.app_write_failed, dict(appname=subscriber.name))
@@ -204,7 +204,11 @@ class Event(object):
             th_q.join()
             print "My wait is over"
             self.onFailure(transaction, th_q, args, kw)
+            transaction.state = 2
+            transactions.commit()
         else:
+            transaction.state = 2
+            transactions.commit()
             threading.Thread(target=self.onFailure, args=(transaction, th_q, args, kw)).start()
 
         print '========================================'
@@ -212,8 +216,6 @@ class Event(object):
             print sid, session['username'], session['ldapconn']
         print transaction.results
         print '========================================'
-        transaction.state = 2
-        transactions.commit()
         return transaction.t_id, transaction.results
 
     def onFailure(self, transaction, th_q, args, kw):
@@ -249,4 +251,8 @@ class Event(object):
                         err = utils.sendAlert(locals())
                         if err: logger.warn(err)
 
-        transaction.delete()
+        try:
+            transaction.delete()
+            transactions.commit()
+        except Exception, err:
+            logger.warn("TODO %s" % err)

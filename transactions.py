@@ -49,7 +49,7 @@ def newTransaction(event, args, kw):
         else:
             t_id = max(t_ids) + 1
             if t_id >= max_tid:
-                trs = Transaction.query.filter(time < (now() - datetime.timedelta(180)))
+                trs = Transaction.query.filter(Transaction.time < (now() - datetime.timedelta(180)))
                 for tr in trs:
                     t_id = tr.t_id
                     tr.delete()
@@ -75,8 +75,9 @@ def currentTransaction():
     return syncer_tls.transaction
 
 def hasFailedBefore(subscriber_name):
-    for tr in Transaction.query.filter(state=2):
-        if errors.hasFailed(tr.results[subscriber_name]):
+    for tr in Transaction.query.filter_by(state=2):
+        ret = tr.results.get(subscriber_name, None)
+        if ret and errors.isError(tr.results[subscriber_name]):
             return True
     return False
 
