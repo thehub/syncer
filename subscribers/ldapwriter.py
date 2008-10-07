@@ -7,9 +7,11 @@ from helpers.ldap import ldapfriendly, ldapSafe
 
 uri = "ldap://localhost"
 globaluserdn = "uid=%s,ou=users,o=the-hub.net"
-localuserdn  = "uid=%s,ou=users,hubId=1,ou=hubs,o=the-hub.net"
+localuserdn  = "uid=%s,ou=users,hubId=%s,ou=hubs,o=the-hub.net"
 hubdn = "hubId=%s,ou=hubs,o=the-hub.net"
 leveldn = "level=%s,ou=roles,hubId=%s,ou=hubs,o=the-hub.net"
+accesspolicydn = "policyId=%(policyId)d,hubId=%(hubId)s,ou=openTimes,o=the-hub.net"
+opentimedn = "openTimeId=%(openTimeId)s,policyId=%(policyId)d,hubId=%(hubId)s,ou=openTimes,o=the-hub.net"
 
 conn = ldap.ldapobject.ReconnectLDAPObject(uri)
 conn.simple_bind_s()
@@ -138,7 +140,7 @@ class LDAPWriter(bases.SubscriberBase):
     onSignon.block = True
 
     @ldapfriendly
-    def onUserAdd(self, username, udata):
+    def onUserAdd(self, username, hubId, udata):
         # Don't modify `udata` as we may call this method again on failure
         # Add hubGlobalUser record
         user_ocnames = ('hubGlobalUser', 'hubSIP')
@@ -151,20 +153,20 @@ class LDAPWriter(bases.SubscriberBase):
         user_all_attrs = addAttrs(*user_ocnames)
         add_record = [('objectClass', tuple(itertools.chain(*[oc_entries[name] for name in user_ocnames])))] + \
                      [(k,v) for (k,v) in udata if k in user_all_attrs]
-        self.conn.add_s(localuserdn % username, add_record)
+        self.conn.add_s(localuserdn % (username, hubId), add_record)
         return True
     onUserAdd.block = True
     onUserAdd.rollback = rollback
 
     @ldapfriendly
-    def onUserMod(self, username, udata):
+    def onUserMod(self, username, hubId, udata):
         logger.debug("Modifying %s: %s" % (username, [k[0] for k in udata]))
         user_ocnames = ('hubGlobalUser', 'hubSIP')
         globaluser_all_attrs = addAttrs(*user_ocnames)
         user_ocnames = ('hubLocalUser',)
         localuser_all_attrs = addAttrs(*user_ocnames)
         globaldn = globaluserdn % username
-        localdn = localuserdn % username
+        localdn = localuserdn % (username, hubId)
         conn = self.conn
         for (k,v) in udata:
             if k in globaluser_all_attrs:
@@ -264,3 +266,35 @@ class LDAPWriter(bases.SubscriberBase):
         return True
     onRoleAdd.block = True
     onRoleAdd.rollback = rollback
+
+    @ldapfriendly
+    def onAccesspolicyAdd(self, hubId, mod_list):
+        policyId = dict(mod_list)['policyId']
+        dn = accesspolicydn % locals()
+        add_record = [('objectClass', 'hubLocalPolicy')] + mod_list
+        self.conn.add_s(dn, add_record)
+    onAccesspolicyAdd.block = True
+    onAccesspolicyAdd.rollback = rollback
+
+    @ldapfriendly
+    def onAccesspolicyMod(self, policyId, hubId, mod_list):
+        dn = accesspolicydn % locals()
+        conn.modify_s(dn, mod_list)
+    onAccesspolicyMod.block = True
+    onAccesspolicyMod.rollback = rollback
+    
+    @ldapfriendly
+    def onOpentimesAdd(self, policyId, hubId, mod_list):
+        opentimeid = dict(mod_list)['openTimeId']
+        dn = opentimedn % locals()
+        add_record = [('objectClass', 'hubLocalOpenTime')] + mod_list
+        self.conn.add_s(dn, add_record)
+    onOpentimesAdd.block = True
+    onOpentimesAdd.rollback = rollback
+
+    @ldapfriendly
+    def onOpentimesMod(self, openTimeId, policyId, hubId, mod_list):
+        dn = opentimedn % locals()
+        conn.modify_s(dn, mod_list)
+    onOpentimesMod.block = True
+    onOpentimesMod.rollback = rollback

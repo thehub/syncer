@@ -254,6 +254,20 @@ object_maps = dict (
         RoleMapping(('cn', 'level'), 'level'),
         SimpleMapping('roleId', 'id'),
         UserGroupMapping('member', 'user_name')
+        ),
+    policy = AttributeMapper (
+        HubId2dnMapping('location', 'policyLocation'),
+        SimpleMapping('precedence', 'Policyprecedence'),
+        SimpleMapping('policyStartDate', 'policyStartDate'),
+        SimpleMapping('policyEndDate', 'policyEndDate'),
+        ),
+    opentimes = AttributeMapper (
+        SimpleMapping('openTimeId', 'id'),
+        SimpleMapping('openTimeStartDate'),
+        SimpleMapping('openTimeDay'),
+        SimpleMapping('openTimeStart'),
+        SimpleMapping('openTimeEnd'),
+        SimpleMapping('openTimeDate')
         )
     )
 
