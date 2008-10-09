@@ -4,7 +4,6 @@ import threading
 import Pyro
 
 import utils
-
 utils.setupDirs()
 utils.setupLogging()
 utils.pushToBuiltins("all_subscribers", dict ())
@@ -36,7 +35,7 @@ syncer.rollbackTransactions.addSubscriber(transactionmgr)
 syncer.rollbackTransactions.transactional = False
 syncer.onSignon.addSubscriber(sessionkeeper)
 syncer.onSignon.addSubscriber(ldapwriter)
-syncer.onSignon.addSubscriber(hubspace)
+#syncer.onSignon.addSubscriber(hubspace)
 syncer.onSignon.addArgsFilter(lambda args, kw: ((args[0], utils.Masked("Secret"), utils.Masked("cookies")), kw))
 syncer.onSignon.transactional = False
 syncer.onSignon.join = True
@@ -74,12 +73,21 @@ syncer.onRoleAdd.addSubscriber(sessionkeeper)
 syncer.onRoleAdd.addSubscriber(hubspace)
 syncer.onRoleAdd.addSubscriber(ldapwriter)
 
+
+#testsubscriber = subscribers.testsubscriber.TestSubscriber("testsubscriber")     # Subscriber added
+#syncer.onHelloWorldRequest.addSubscriber(testsubscriber)                               # Event and Subscriber
+
+knowledge = subscribers.knowledge.Knowledge("localhost:8087/sites/hub/hubwiki",'knowledge')
+syncer.onSignon.addSubscriber(knowledge)
+
+
+
 Pyro.core.initServer()
 #Pyro.config.PYRO_TRACELEVEL=3
 
-sslsetup_cmd = "sh %s" % os.path.join(os.getcwd(), "sslsetup.sh")
-if os.system(sslsetup_cmd) != 0:
-    sys.exit("SSL Setup failed, try sh -x %s manually" % sslsetup_cmd)
+#sslsetup_cmd = "sh %s" % os.path.join(os.getcwd(), "sslsetup.sh")
+#if os.system(sslsetup_cmd) != 0:
+#    sys.exit("SSL Setup failed, try sh -x %s manually" % sslsetup_cmd)
 
 daemon = Pyro.core.Daemon(prtcol=config.pyro_protocol)
 
