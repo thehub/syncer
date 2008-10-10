@@ -44,7 +44,7 @@ class HubSpace(bases.WebApp):
         self.makeHttpReq(userdel_url, d)
         return True
        
-    def onUserChange(self, username, u_data):
+    def onUserMod(self, username, u_data):
         usermod_url = "http://%s/get_widget?widget_name=memberProfileEdit&object_type=User&object_id=%s" % (self.domainname, username)
         d = self.readForm(usermod_url)
 
@@ -54,4 +54,4 @@ class HubSpace(bases.WebApp):
         self.makeHttpReq(save_url, d)
         return True
 
-    onUserChange.block = True
+    onUserMod.block = True
