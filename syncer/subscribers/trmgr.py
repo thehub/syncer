@@ -1,5 +1,6 @@
 import transactions
 import bases
+import errors
 
 Transaction = transactions.Transaction
 
@@ -20,10 +21,20 @@ class TransactionMgr(bases.SubscriberBase):
     onAnyEvent.block = True
 
     def completeTransactions(self, tr_list):
+        logger.debug("Marking Transaction(s) %s complte" % str(tr_list))
         for t_id in tr_list:
-            tr = Transaction.query.filter_by(id=t_id)[0]
-            tr.delete()
-    completeTransactions.block = False
+            if not t_id:
+                logger.warn("Invalid Transaction ID in Transaction complete request: %s" % t_id)
+                continue
+            res = list(Transaction.query.filter_by(id=t_id))
+            if res:
+                res[0].delete()
+            else:
+                logger.error("No such transaction: %s" % t_id)
+                #import time
+                #time.sleep(5)
+                return errors.syncer_transaction_failed
+    completeTransactions.block = True
 
     def rollbackTransactions(self, tr_list):
         for t_id in tr_list:

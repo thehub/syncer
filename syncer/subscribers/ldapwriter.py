@@ -211,7 +211,7 @@ class LDAPWriter(bases.SubscriberBase):
             pass
         # Add role references as globaluser's hubMemberOf attribute
         try:
-            conn.modify_s(userdn, [(ldap.MOD_ADD, "hubMemberOf", hub_id)])
+            conn.modify_s(userdn, [(ldap.MOD_ADD, "hubMemberOf", hubId)])
         except ldap.TYPE_OR_VALUE_EXISTS, err:
             pass
     onAssignRoles.block = True
@@ -234,7 +234,7 @@ class LDAPWriter(bases.SubscriberBase):
         hub_ous = ['users', 'groups', 'tariffs', 'roles', 'policies']
         oudn = "ou=%s,hubId=%s,ou=hubs,o=the-hub.net"
         for ou in hub_ous:
-            dn = oudn % (ou, hubid)
+            dn = oudn % (ou, hubId)
             add_record = [ ('objectClass', 'organizationalUnit'),
                            ('description', "Top level entry for the subtree of this hub's %s" % ou),
                            ('ou', ou) ]
@@ -271,7 +271,6 @@ class LDAPWriter(bases.SubscriberBase):
 
     @ldapfriendly
     def onAccesspolicyAdd(self, hubId, mod_list):
-        print hubId, mod_list
         policyId = dict(mod_list)['policyId']
         dn = accesspolicydn % locals()
         add_record = [('objectClass', 'hubLocalPolicy')] + mod_list

@@ -154,7 +154,9 @@ class Event(object):
                         print "before attempt #%d sleeping for 2 secs" % (attempt + 1)
                         time.sleep(getattr(f, 'attempt_interval', 2))
         finally:
-            transactions.session.remove()
+            transactions.commit()
+            transactions.Session.remove()
+            transactions.Session.clear()
             th_q.get()
             th_q.task_done()
 
@@ -173,7 +175,6 @@ class Event(object):
                 logger.info("%s %s: done\n" % (subscriber.name, self.name))
             else:
                 th.start()
-        transactions.commit()
 
     def __call__(self, app_name, sid, *args, **kw):
         logger.info('Syncer publishing event: \"(%s)%s\"' % (app_name, self.name))
@@ -185,11 +186,11 @@ class Event(object):
         if not sid:
             sid = sessions.genVisitId(self.name, args, kw)
         
-        #transactions.commit()
-
         with threading.Lock():
             transaction = transactions.newTransaction(self, *self.argsfilterer(args, kw))
             transactions.commit()
+            tr_id = transaction.id
+            logger.debug("Transaction (%s): Begin" % transaction.id)
 
         for subscriber in self.subscribers_s:
             if app_name == subscriber.name: continue
@@ -197,31 +198,29 @@ class Event(object):
             if errors.hasFailed(transaction.results):
                 __failed = True
                 break
-        if not __failed:
+
+        if __failed:
+            self.onFailure(transaction, th_q, args, kw)
+        else:
             for subscriber in self.subscribers:
                 if not app_name == subscriber.name:
                     self.runInThread(sid, transaction, subscriber, args, kw, th_q)
 
-        if self.join:
-            print "I'm asked to wait"
-            th_q.join()
-            print "My wait is over"
-            self.onFailure(transaction, th_q, args, kw)
-            transaction.state = 2
-            transactions.commit()
-        else:
-            transaction.state = 2
-            transactions.commit()
-
-        if __failed:
-            threading.Thread(target=self.onFailure, args=(transaction, th_q, args, kw)).start()
+            if self.join:
+                print "I'm asked to wait"
+                th_q.join()
+                print "My wait is over"
+                transaction.state = 2
+                transactions.commit()
+                transactions.Session.remove()
+                transactions.Session.clear()
 
         print '========================================'
         for (sid, session) in sessions.items():
             print sid, session['username'], session['ldapconn']
         print transaction.results
         print '========================================'
-        return transaction.id, transaction.results
+        return tr_id, transaction.results
 
     def onFailure(self, transaction, th_q, args, kw):
         th_q.join()
@@ -260,3 +259,5 @@ class Event(object):
             transactions.commit()
         except Exception, err:
             logger.warn("TODO %s" % err)
+        transactions.Session.remove()
+        transactions.Session.clear()

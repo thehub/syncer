@@ -9,9 +9,8 @@ now = datetime.datetime.now
 
 metadata.bind = "sqlite:///trdb.sqlite"
 #metadata.bind.echo = True
-Session = scoped_session(sessionmaker(autoflush=False,  transactional=False))
+Session = scoped_session(sessionmaker(autoflush=True,  transactional=False))
 elixir.session = Session
-
 
 def commit():
     try:
@@ -55,7 +54,6 @@ def newTransaction(event, args, kw):
     else:
         factory = DummyTransaction
     tr = factory(event_name=event.name, args=args, kw=kw, results={})
-    logger.debug("Transaction (%s): Begin" % event.transactional and tr.id or "0 (dummy)")
     return tr
 
 class RollbackData(Entity):
