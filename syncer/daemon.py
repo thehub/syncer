@@ -74,6 +74,9 @@ syncer.onRoleAdd.addSubscriber(sessionkeeper)
 syncer.onRoleAdd.addSubscriber(hubspace)
 syncer.onRoleAdd.addSubscriber(ldapwriter)
 
+syncer.onAccesspolicyAdd.addSubscriber(sessionkeeper)
+syncer.onAccesspolicyAdd.addSubscriber(ldapwriter)
+
 Pyro.core.initServer()
 #Pyro.config.PYRO_TRACELEVEL=3
 
