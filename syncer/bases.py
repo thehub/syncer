@@ -1,3 +1,4 @@
+from __future__ import with_statement
 import cPickle, datetime, threading, time, urllib, urllib2, cookielib, traceback
 from Queue import Queue
 
@@ -184,9 +185,11 @@ class Event(object):
         if not sid:
             sid = sessions.genVisitId(self.name, args, kw)
         
-        transactions.commit()
-        transaction = transactions.newTransaction(self, *self.argsfilterer(args, kw))
-        transactions.commit()
+        #transactions.commit()
+
+        with threading.Lock():
+            transaction = transactions.newTransaction(self, *self.argsfilterer(args, kw))
+            transactions.commit()
 
         for subscriber in self.subscribers_s:
             if app_name == subscriber.name: continue
@@ -209,6 +212,8 @@ class Event(object):
         else:
             transaction.state = 2
             transactions.commit()
+
+        if __failed:
             threading.Thread(target=self.onFailure, args=(transaction, th_q, args, kw)).start()
 
         print '========================================'
@@ -216,14 +221,13 @@ class Event(object):
             print sid, session['username'], session['ldapconn']
         print transaction.results
         print '========================================'
-        return transaction.t_id, transaction.results
+        return transaction.id, transaction.results
 
     def onFailure(self, transaction, th_q, args, kw):
         th_q.join()
         results = transaction.results
 
         if errors.hasFailed(results):
-            "failed !!!"
             transaction.state = 2
             eventname = self.name
             failed_apps = dict ()

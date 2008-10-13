@@ -21,13 +21,14 @@ class TransactionMgr(bases.SubscriberBase):
 
     def completeTransactions(self, tr_list):
         for t_id in tr_list:
-            tr = Transaction.query.filter_by(t_id=t_id)[0]
+            tr = Transaction.query.filter_by(id=t_id)[0]
             tr.delete()
     completeTransactions.block = False
 
     def rollbackTransactions(self, tr_list):
         for t_id in tr_list:
-            tr = Transaction.query.filter_by(t_id=t_id)[0]
+            trs = list(Transaction.query.filter_by(id=t_id))
+            tr = trs[0]
             tr.state = 3
             logger.info("Transaction %s: Begin rollback of event %s" % (t_id, tr.event_name))
             for rbdata in tr.rollback_data:

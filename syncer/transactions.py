@@ -1,4 +1,6 @@
 import datetime
+from sqlalchemy.orm import scoped_session, sessionmaker
+import elixir
 from elixir import *
 
 import errors
@@ -7,19 +9,20 @@ now = datetime.datetime.now
 
 metadata.bind = "sqlite:///trdb.sqlite"
 #metadata.bind.echo = True
-#elixir.session = scoped_session(sessionmaker(autoflush=True, transactional=False, autocommit=True))
+Session = scoped_session(sessionmaker(autoflush=False,  transactional=False))
+elixir.session = Session
+
 
 def commit():
     try:
-        session.flush()
-        session.commit()
+        Session.flush()
+        Session.commit()
     except:
         pass
 
 max_tid = 1024 * 10
 
 class Transaction(Entity):
-    t_id = Field(Integer, unique=True, primary_key=True)
     time = Field(DateTime, default=now)
     state = Field(Integer, default=1) # 1: Running, 2: Complete, 3: Rolling back
     owner = Field(Unicode)
@@ -37,33 +40,23 @@ class Transaction(Entity):
 
 class DummyTransaction(object):
     def __init__(self, **kw):
+        self.id = 0
         self.__dict__.update(kw)
     def delete(self): pass
  
 def newTransaction(event, args, kw):
     if event.transactional:
         factory = Transaction
-        t_ids = [tr.t_id for tr in Transaction.query.all()]
-        if not t_ids:
-            t_id = 1
-        else:
-            t_id = max(t_ids) + 1
-            if t_id >= max_tid:
-                trs = Transaction.query.filter(Transaction.time < (now() - datetime.timedelta(180)))
-                for tr in trs:
-                    t_id = tr.t_id
-                    tr.delete()
-                    logger.info("Transaction %s is deleted" % t_id)
-                if trs:
-                    t_ids = [tr.id for tr in Transaction.query.all()]
-                    while xrange(max_tid + 1):
-                        if t_id not in t_ids:
-                            break
+        trs = Transaction.query.filter(Transaction.time < (now() - datetime.timedelta(180)))
+        for tr in trs:
+            t_id = tr.id
+            tr.delete()
+            logger.info("Transaction %s is deleted" % t_id)
     else:
         factory = DummyTransaction
-        t_id = 0
-    logger.debug("Transaction (%s): Begin" % event.transactional and t_id or "0 (dummy)")
-    return factory(t_id=t_id, event_name=event.name, args=args, kw=kw, results={})
+    tr = factory(event_name=event.name, args=args, kw=kw, results={})
+    logger.debug("Transaction (%s): Begin" % event.transactional and tr.id or "0 (dummy)")
+    return tr
 
 class RollbackData(Entity):
     subscriber_name = Field(Unicode)

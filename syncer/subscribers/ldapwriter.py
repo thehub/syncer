@@ -269,10 +269,14 @@ class LDAPWriter(bases.SubscriberBase):
 
     @ldapfriendly
     def onAccesspolicyAdd(self, hubId, mod_list):
+        print hubId, mod_list
         policyId = dict(mod_list)['policyId']
         dn = accesspolicydn % locals()
         add_record = [('objectClass', 'hubLocalPolicy')] + mod_list
-        self.conn.add_s(dn, add_record)
+        ret = self.conn.add_s(dn, add_record)
+        print '=========================='
+        print ret
+        print '=========================='
     onAccesspolicyAdd.block = True
     onAccesspolicyAdd.rollback = rollback
 
