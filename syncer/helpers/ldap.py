@@ -80,7 +80,9 @@ class HubId2dnMapping(AttributeMapping):
         out_attrs[self.app_attrs[0]] = globaluserdn2username(in_attrs[self.ldap_attrs[0]])
     def _toLDAP(self, o, in_attrs, out_attrs):
         tmpl = 'hubId=%(hub_id)s,ou=hubs,o=the-hub.net'
-        out_attrs['homeHub'] = tmpl % dict (user_name = in_attrs['user_name'], hub_id = in_attrs['homeplace'].id)
+        loc_attr = self.app_attrs[0]
+        hub_id = in_attrs.get(loc_attr, None) or getattr(o, loc_attr).id
+        out_attrs[self.ldap_attrs[0]] = tmpl % locals()
 
 class OtherHubsMapping(AttributeMapping):
     def _toApp(self, o, in_attrs, out_attrs):
@@ -139,6 +141,16 @@ class MD5Password(AttributeMapping):
 class UserGroupMapping(AttributeMapping):
     def _toLDAP(self, o, in_attrs, out_attrs):
         out_attrs[self.ldap_attrs[0]] = username2globaluserdn(o.user.user_name)
+    def _toApp(self, o, in_attrs, out_attrs):
+        out_attrs[self.app_attrs[0]] = globaluserdn2username(self.ldap_attrs[0])
+
+class PolicyMapping(AttributeMapping):
+    def _toLDAP(self, o, in_attrs, out_attrs):
+        policydn = "policyId=%(policyId)s,ou=policies,hubId=%(hubId)s,ou=hubs,o=the-hub.net"
+        import hubspace.model # ugly
+        AccessPolicy = hubspace.model.AccessPolicy
+        out_attrs[self.ldap_attrs[0]] = [policydn % dict(policyId=p, hubId=AccessPolicy.get(p).locationID) \
+            for p in getattr(o, self.app_attrs[0])]
     def _toApp(self, o, in_attrs, out_attrs):
         out_attrs[self.app_attrs[0]] = globaluserdn2username(self.ldap_attrs[0])
 
@@ -203,8 +215,8 @@ object_maps = dict (
         SimpleMapping('hubIdentitySIPURI', 'sip_id'),
         SimpleMapping('hubUserId', 'id'),
         SimpleMapping('labeledURI', 'website'),
-        HubId2dnMapping('homeHub', 'homeplace'),
-        #RelatedJoinMapping('policyReference', 'access_policies'),
+        HubId2dnMapping('homeHub', 'homeplaceID'),
+        PolicyMapping('policyReference', 'access_policies'),
         SimpleMapping('extensionTelephoneNumber', 'ext'),
         SimpleMapping('quotaStorage', 'gb_storage'),
         SimpleMapping('operatingSystem', 'os'),
@@ -259,10 +271,11 @@ object_maps = dict (
         UserGroupMapping('member', 'user_name')
         ),
     policy = AttributeMapper (
-        HubId2dnMapping('location', 'policyLocation'),
-        SimpleMapping('precedence', 'Policyprecedence'),
+        HubId2dnMapping('policyLocation', 'locationID'),
+        SimpleMapping('policyPrecedence', 'precedence'),
         SimpleMapping('policyStartDate', 'policyStartDate'),
         SimpleMapping('policyEndDate', 'policyEndDate'),
+        SimpleMapping('policyId', 'id'),
         ),
     opentimes = AttributeMapper (
         SimpleMapping('openTimeId', 'id'),
