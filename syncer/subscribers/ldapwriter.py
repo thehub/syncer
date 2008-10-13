@@ -6,12 +6,13 @@ import bases, utils, transactions
 from helpers.ldap import ldapfriendly, ldapSafe
 
 uri = "ldap://localhost"
-globaluserdn = "uid=%s,ou=users,o=the-hub.net"
+basedn = "o=the-hub.net"
+globaluserdn = "uid=%s,ou=users," + basedn
 localuserdn  = "uid=%s,ou=users,hubId=%s,ou=hubs,o=the-hub.net"
-hubdn = "hubId=%s,ou=hubs,o=the-hub.net"
-leveldn = "level=%s,ou=roles,hubId=%s,ou=hubs,o=the-hub.net"
-accesspolicydn = "policyId=%(policyId)d,hubId=%(hubId)s,ou=openTimes,o=the-hub.net"
-opentimedn = "openTimeId=%(openTimeId)s,policyId=%(policyId)d,hubId=%(hubId)s,ou=openTimes,o=the-hub.net"
+hubdn = "hubId=%(hubId)s,ou=hubs," + basedn
+leveldn = "level=%(level)s,ou=roles," + hubdn
+accesspolicydn = "policyId=%(policyId)s,ou=policies," + hubdn
+opentimedn = "openTimeId=%(openTimeId)s," + accesspolicydn
 
 conn = ldap.ldapobject.ReconnectLDAPObject(uri)
 conn.simple_bind_s()
@@ -63,7 +64,8 @@ class Proxy(object):
         result = self._conn.add_s(*args, **kw)
         dn, mod_list = args
         rdn, basedn = dn.split(',', 1)
-        rbdata = ("delete_s", dn)
+        data = ("delete_s", dn)
+        rbdata = transactions.RollbackData(subscriber_name=subscriber_name, data=data)
         currentTransaction().rollback_data.append(rbdata)
         return result
 
@@ -102,8 +104,9 @@ class Proxy(object):
         result = self._conn.delete_s(*args, **kw)
         dn, mod_list = args
         rdn, basedn = dn.split(',', 1)
-        data = list(self._conn.search_s(basedn, ldap.SCOPE_ONELEVEL, '(%s)' % rdn, ['*'])[0][1].items())
-        rbdata = ("add_s", dn, data)
+        attrs = list(self._conn.search_s(basedn, ldap.SCOPE_ONELEVEL, '(%s)' % rdn, ['*'])[0][1].items())
+        data = ("add_s", dn, attrs)
+        rbdata = transactions.RollbackData(subscriber_name=subscriber_name, data=data)
         currentTransaction().rollback_data.append(rbdata)
         return result
 
@@ -193,15 +196,14 @@ class LDAPWriter(bases.SubscriberBase):
     onUserDel.rollback = rollback
 
     @ldapfriendly
-    def onAssignRoles(self, username, hub_id, level):
+    def onAssignRoles(self, username, hubId, level):
         """
         When user is assigned new roles
         All previous roles would replaced with new set of roles.
         """
-        print username, hub_id, level
         userdn = globaluserdn % username
         conn = self.conn
-        dn = leveldn % (level, hub_id)
+        dn = leveldn % locals()
         # Add new roles
         try:
             conn.modify_s(dn, [(ldap.MOD_ADD, "member", userdn)])
@@ -222,8 +224,8 @@ class LDAPWriter(bases.SubscriberBase):
     onRevokeRoles.rollback = rollback
 
     @ldapfriendly
-    def onHubAdd(self, hubid, hubdata):
-        dn = hubdn % hubid
+    def onHubAdd(self, hubId, hubdata):
+        dn = hubdn % locals()
         ocnames = ('hub',)
         all_attrs = addAttrs(*ocnames)
         add_record = [('objectClass', tuple(itertools.chain(*[oc_entries[name] for name in ocnames])))] + \
@@ -242,8 +244,8 @@ class LDAPWriter(bases.SubscriberBase):
     onHubAdd.rollback = rollback
 
     @ldapfriendly
-    def onHubMod(self, hubid, hubdata):
-        dn = hubdn % hubid
+    def onHubMod(self, hubId, hubdata):
+        dn = hubdn % locals()
         conn = self.conn
         for (k,v) in hubdata:
             mod_list = [(ldap.MOD_DELETE, k, None), (ldap.MOD_ADD, k, v)]
@@ -256,11 +258,11 @@ class LDAPWriter(bases.SubscriberBase):
     onHubMod.rollback = rollback
 
     @ldapfriendly
-    def onRoleAdd(self, hubid, level, data):
+    def onRoleAdd(self, hubId, level, data):
         """
         When a new role is added for a hub, same as new group in HubSpace
         """
-        dn = leveldn % (level, hubid)
+        dn = leveldn % locals()
         add_record = [ ('objectClass', 'hubLocalRole'),] + [(k,v) for (k,v) in data]
         self.conn.add_s(dn, add_record)
         return True
@@ -274,9 +276,6 @@ class LDAPWriter(bases.SubscriberBase):
         dn = accesspolicydn % locals()
         add_record = [('objectClass', 'hubLocalPolicy')] + mod_list
         ret = self.conn.add_s(dn, add_record)
-        print '=========================='
-        print ret
-        print '=========================='
     onAccesspolicyAdd.block = True
     onAccesspolicyAdd.rollback = rollback
 
