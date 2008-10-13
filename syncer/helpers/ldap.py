@@ -151,7 +151,10 @@ def ldapSafe(x):
     elif x == None:
         x = ''
     elif isinstance(x, datetime.date):
-        x = x.strftime("%Y%m%d") + '000000+0000'
+        try:
+            x = x.strftime("%Y%m%d") + '000000+0000'
+        except ValueError:
+            x = "%s%s%s000000+0000" % (str(x.year).zfill(4), str(x.month).zfill(2), str(x.day).zfill(2))
     elif isinstance(x, (list, tuple)):
         x = [ldapSafe(i) for i in x if i]
     return x
