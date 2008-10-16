@@ -8,6 +8,7 @@ import base64
 
 username2globaluserdn = lambda user_name: "uid=%s,ou=users,o=the-hub.net" % user_name
 globaluserdn2username = lambda dn: dn.split(',')[0].split('=')[1]
+policydn = "policyId=%(policyId)s,ou=policies,hubId=%(hubId)s,ou=hubs,o=the-hub.net"
 
 class AttributeMapper(list):
     def __init__(self, *args):
@@ -144,29 +145,45 @@ class UserGroupMapping(AttributeMapping):
     def _toApp(self, o, in_attrs, out_attrs):
         out_attrs[self.app_attrs[0]] = globaluserdn2username(self.ldap_attrs[0])
 
-class PolicyMapping(AttributeMapping):
+class AccessPoliciesMapping(AttributeMapping):
     def _toLDAP(self, o, in_attrs, out_attrs):
-        policydn = "policyId=%(policyId)s,ou=policies,hubId=%(hubId)s,ou=hubs,o=the-hub.net"
         import hubspace.model # ugly
         AccessPolicy = hubspace.model.AccessPolicy
-        out_attrs[self.ldap_attrs[0]] = [policydn % dict(policyId=p, hubId=AccessPolicy.get(p).locationID) \
-            for p in getattr(o, self.app_attrs[0])]
+        access_policies = getattr(o, self.app_attrs[0])
+        out_attrs[self.ldap_attrs[0]] = [policydn % dict(policyId=p, hubId=AccessPolicy.get(p).locationID) for p in access_policies]
+    def _toApp(self, o, in_attrs, out_attrs):
+        out_attrs[self.app_attrs[0]] = globaluserdn2username(self.ldap_attrs[0])
+
+class PolicyMapping(AttributeMapping):
+    def _toLDAP(self, o, in_attrs, out_attrs):
+        policy = getattr(o, self.app_attrs[0])
+        out_attrs[self.ldap_attrs[0]] = policydn % dict(policyId=policy.id, hubId=policy.locationID)
+    def _toApp(self, o, in_attrs, out_attrs):
+        raise NotImplemented
+
+class PolicyResourceMapping(AttributeMapping):
+    def _toLDAP(self, o, in_attrs, out_attrs):
+        out_attrs[self.ldap_attrs[0]] = o.policy_resource.name
     def _toApp(self, o, in_attrs, out_attrs):
         out_attrs[self.app_attrs[0]] = globaluserdn2username(self.ldap_attrs[0])
 
 def ldapSafe(x):
-    # a bit ugly code, do you know any better way? 
     if isinstance(x, unicode):
         x = x.encode('utf-8') # http://www.mail-archive.com/python-ldap-dev@lists.sourceforge.net/msg00040.html
     elif isinstance(x, (bool, int, long)):
         x = str(int(x))
     elif x == None:
         x = ''
-    elif isinstance(x, datetime.date):
+    elif isinstance(x, (datetime.date, datetime.time)):
         try:
-            x = x.strftime("%Y%m%d") + '000000+0000'
+            x = x.strftime("%Y%m%d%H%M%S") + '+0000'
         except ValueError:
-            x = "%s%s%s000000+0000" % (str(x.year).zfill(4), str(x.month).zfill(2), str(x.day).zfill(2))
+            if isinstance(x, datetime.date):
+                x = "%s%s%s000000+0000" % (str(x.year).zfill(4), str(x.month).zfill(2), str(x.day).zfill(2))
+            elif isinstance(x, datetime.time):
+                x = "00000000%s%s%s+0000" % (str(x.hour).zfill(2), str(x.minute).zfill(2), str(x.second).zfill(2))
+            else:
+                raise
     elif isinstance(x, (list, tuple)):
         x = [ldapSafe(i) for i in x if i]
     return x
@@ -216,7 +233,7 @@ object_maps = dict (
         SimpleMapping('hubUserId', 'id'),
         SimpleMapping('labeledURI', 'website'),
         HubId2dnMapping('homeHub', 'homeplaceID'),
-        PolicyMapping('policyReference', 'access_policies'),
+        AccessPoliciesMapping('policyReference', 'access_policies'),
         SimpleMapping('extensionTelephoneNumber', 'ext'),
         SimpleMapping('quotaStorage', 'gb_storage'),
         SimpleMapping('operatingSystem', 'os'),
@@ -276,6 +293,7 @@ object_maps = dict (
         SimpleMapping('policyStartDate', 'policyStartDate'),
         SimpleMapping('policyEndDate', 'policyEndDate'),
         SimpleMapping('policyId', 'id'),
+        PolicyResourceMapping('policyResource', 'policy_resource'),
         ),
     opentimes = AttributeMapper (
         SimpleMapping('openTimeId', 'id'),
@@ -283,7 +301,8 @@ object_maps = dict (
         SimpleMapping('openTimeDay'),
         SimpleMapping('openTimeStart'),
         SimpleMapping('openTimeEnd'),
-        SimpleMapping('openTimeDate')
+        SimpleMapping('openTimeDate'),
+        PolicyMapping('policyReference', 'policy'),
         )
     )
 
