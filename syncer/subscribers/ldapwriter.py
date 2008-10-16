@@ -64,7 +64,8 @@ class Proxy(object):
         result = self._conn.add_s(*args, **kw)
         dn, mod_list = args
         rdn, basedn = dn.split(',', 1)
-        data = ("delete_s", dn)
+        attrs = list(self._conn.search_s(basedn, ldap.SCOPE_ONELEVEL, '(%s)' % rdn, ['*'])[0][1].items())
+        data = ("delete_s", dn, attrs)
         rbdata = transactions.RollbackData(subscriber_name=subscriber_name, data=data)
         currentTransaction().rollback_data.append(rbdata)
         return result
@@ -287,7 +288,7 @@ class LDAPWriter(bases.SubscriberBase):
     
     @ldapfriendly
     def onOpentimesAdd(self, policyId, hubId, mod_list):
-        opentimeid = dict(mod_list)['openTimeId']
+        openTimeId = dict(mod_list)['openTimeId']
         dn = opentimedn % locals()
         add_record = [('objectClass', 'hubLocalOpenTime')] + mod_list
         self.conn.add_s(dn, add_record)
