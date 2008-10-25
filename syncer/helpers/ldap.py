@@ -163,7 +163,7 @@ class PolicyMapping(AttributeMapping):
 
 class PolicyResourceMapping(AttributeMapping):
     def _toLDAP(self, o, in_attrs, out_attrs):
-        out_attrs[self.ldap_attrs[0]] = o.policy_resource.name
+        out_attrs[self.ldap_attrs[0]] = o.policy_resource.id
     def _toApp(self, o, in_attrs, out_attrs):
         out_attrs[self.app_attrs[0]] = globaluserdn2username(self.ldap_attrs[0])
 
