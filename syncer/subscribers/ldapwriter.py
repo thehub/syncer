@@ -66,8 +66,7 @@ class Proxy(object):
         rdn, basedn = dn.split(',', 1)
         attrs = list(self._conn.search_s(basedn, ldap.SCOPE_ONELEVEL, '(%s)' % rdn, ['*'])[0][1].items())
         data = ("delete_s", dn, attrs)
-        rbdata = transactions.RollbackData(subscriber_name=subscriber_name, data=data)
-        currentTransaction().rollback_data.append(rbdata)
+        rbdata = transactions.RollbackData(subscriber_name=subscriber_name, data=data, transaction=currentTransaction())
         return result
 
     def modify_s(self, *args, **kw):
@@ -95,8 +94,7 @@ class Proxy(object):
                 mod_list.append((MOD_ADD, action[1], old_values[attr]))
         data.append(mod_list)
         # 4. save and hope that we will never need it
-        rbdata = transactions.RollbackData(subscriber_name=subscriber_name, data=data)
-        currentTransaction().rollback_data.append(rbdata)
+        rbdata = transactions.RollbackData(subscriber_name=subscriber_name, data=data, transaction=currentTransaction())
         return result
 
     def delete_s(self, *args, **kw):
@@ -107,8 +105,7 @@ class Proxy(object):
         rdn, basedn = dn.split(',', 1)
         attrs = list(self._conn.search_s(basedn, ldap.SCOPE_ONELEVEL, '(%s)' % rdn, ['*'])[0][1].items())
         data = ("add_s", dn, attrs)
-        rbdata = transactions.RollbackData(subscriber_name=subscriber_name, data=data)
-        currentTransaction().rollback_data.append(rbdata)
+        rbdata = transactions.RollbackData(subscriber_name=subscriber_name, data=data, transaction=currentTransaction())
         return result
 
 # LDAP Events
