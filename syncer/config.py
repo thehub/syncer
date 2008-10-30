@@ -24,7 +24,7 @@ ldap_basedn = "dc=the-hub,dc=net"
 
 session_idletimeout = datetime.timedelta(0, 60 * 24 * 60 * 60) # 60 days of inactivity should expire the session
 
-client_disabled = False
+client_disabled = True
 
 class defaults(object):
     event_join = False
