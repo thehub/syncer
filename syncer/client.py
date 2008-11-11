@@ -1,7 +1,4 @@
-try:
-    import functools
-except:
-    import compat as functools
+import functools
 
 import cookielib, cPickle
 
