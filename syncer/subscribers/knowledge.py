@@ -27,15 +27,7 @@ class Knowledge(bases.WebApp):
     def onUserMod(self,username,data):
         print 'in onUserMod in knowledge'
         save_url = 'http://%s/Members/%s/modifyBySyncer' % (self.domainname,username)
-        translation = dict (id = 'uid',
-                            fullname = 'cn')
-        reverse = dict([(value,key) for key,value in translation.items()])
-        d = dict()
-        data = dict(data)
-        for plone,ldap in translation.items():
-            if data.has_key(ldap):
-                d[plone]=data[ldap]
-        self.makeHttpReq(save_url, d)
+        self.makeHttpReq(save_url, data)
         #I think we need to check here
         return True
 
