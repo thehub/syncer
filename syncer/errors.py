@@ -36,7 +36,10 @@ def isError(status):
 def hasFailed(result):
     if isinstance(result, Exception):
         return True
-    for handler_res in result.values():
+
+    if isinstance(result, dict):
+        result = result.values()
+    for handler_res in result:
         if isError(handler_res):
             return True
     return False
