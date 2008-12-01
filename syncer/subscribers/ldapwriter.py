@@ -46,6 +46,10 @@ oc_entries = dict([(oc.names[0], (oc.names + oc.sup)) for oc in hub_ocs])
 conn.unbind_s()
 del all_ocs, conn, isHubOC, schema, all_attrs
 
+def getLocalUserDNFromUid(conn, uid):
+    attrs_d = conn.search_s(basedn, ldap.SCOPE_ONELEVEL, '(%s)' % rdn, ['*'])[0][1]
+    return "uid=%s,ou=users,%s" % (uid, attrs_d['homeHub'])
+
 # LDAP Proxy
 MOD_ADD, MOD_DELETE, MOD_REPLACE = ldap.MOD_ADD, ldap.MOD_DELETE, ldap.MOD_REPLACE
 subscriber_name = "ldapwriter"
@@ -141,7 +145,7 @@ class LDAPWriter(bases.SubscriberBase):
     onSignon.block = True
 
     @ldapfriendly
-    def onUserAdd(self, username, hubId, udata):
+    def onUserAdd(self, username, udata):
         # Don't modify `udata` as we may call this method again on failure
         # Add hubGlobalUser record
         user_ocnames = ('hubGlobalUser', 'hubSIP')
@@ -152,31 +156,40 @@ class LDAPWriter(bases.SubscriberBase):
         # Add hubLocalUser record
         user_ocnames = ('hubLocalUser',)
         user_all_attrs = addAttrs(*user_ocnames)
-        add_record = [('objectClass', tuple(itertools.chain(*[oc_entries[name] for name in user_ocnames])))] + \
-                     [(k,v) for (k,v) in udata if k in user_all_attrs]
-        self.conn.add_s(localuserdn % (username, hubId), add_record)
+        if 'homeHub' in udata:
+            user_attrs = set(user_all_attrs).intersection(udata.keys())
+            if user_attrs:
+                localuserdn = "uid=%s,ou=users,%s" % (uid, udata['homeHub'])
+                add_record = [('objectClass', tuple(itertools.chain(*[oc_entries[name] for name in user_ocnames])))] + \
+                             [(k,v) for (k,v) in udata if k in user_all_attrs]
+                self.conn.add_s(localuserdn % (username, hubId), add_record)
         return True
     onUserAdd.block = True
     onUserAdd.rollback = rollback
 
     @ldapfriendly
-    def onUserMod(self, username, hubId, udata):
+    def onUserMod(self, username, udata):
         logger.debug("Modifying %s: %s" % (username, [k[0] for k in udata]))
         user_ocnames = ('hubGlobalUser', 'hubSIP')
         globaluser_all_attrs = addAttrs(*user_ocnames)
         user_ocnames = ('hubLocalUser',)
         localuser_all_attrs = addAttrs(*user_ocnames)
         globaldn = globaluserdn % username
-        localdn = localuserdn % (username, hubId)
         conn = self.conn
-        for (k,v) in udata:
-            if k in globaluser_all_attrs:
+        globaluser_attrs = set(globaluser_attrs).intersection(udata.keys())
+        if globaluser_attrs:
+            for k in globaluser_attrs:
+                v = udata[k]
                 mod_list = [(ldap.MOD_DELETE, k, None), (ldap.MOD_ADD, k, v)]
                 try:
                     conn.modify_s(globaldn, mod_list)
                 except ldap.NO_SUCH_ATTRIBUTE, err:
                     conn.modify_s(globaldn, mod_list[-1:])
-            elif k in localuser_all_attrs:
+        localuser_attrs = set(localuser_all_attrs).intersection(udata.keys())
+        if localuser_attrs:
+            localdn = getLocalUserDNFromUid(conn, username)
+            for k in localuser_attrs:
+                v = udata[k]
                 mod_list = [(ldap.MOD_DELETE, k, None), (ldap.MOD_ADD, k, v)]
                 try:
                     conn.modify_s(localdn, mod_list)
@@ -187,7 +200,7 @@ class LDAPWriter(bases.SubscriberBase):
     onUserMod.rollback = rollback
 
     @ldapfriendly
-    def onUserDel(self, username, udata):
+    def onUserDel(self, username):
         #self.conn.delete....
         raise NotImplemented
     onUserDel.block = True
