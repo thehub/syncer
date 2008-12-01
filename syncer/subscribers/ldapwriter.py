@@ -156,12 +156,13 @@ class LDAPWriter(bases.SubscriberBase):
         # Add hubLocalUser record
         user_ocnames = ('hubLocalUser',)
         user_all_attrs = addAttrs(*user_ocnames)
+        udata = dict(udata)
         if 'homeHub' in udata:
             user_attrs = set(user_all_attrs).intersection(udata.keys())
             if user_attrs:
                 localuserdn = "uid=%s,ou=users,%s" % (uid, udata['homeHub'])
                 add_record = [('objectClass', tuple(itertools.chain(*[oc_entries[name] for name in user_ocnames])))] + \
-                             [(k,v) for (k,v) in udata if k in user_all_attrs]
+                             [(k,v) for (k,v) in udata.items() if k in user_all_attrs]
                 self.conn.add_s(localuserdn % (username, hubId), add_record)
         return True
     onUserAdd.block = True
