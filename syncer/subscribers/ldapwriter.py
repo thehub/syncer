@@ -176,6 +176,7 @@ class LDAPWriter(bases.SubscriberBase):
         localuser_all_attrs = addAttrs(*user_ocnames)
         globaldn = globaluserdn % username
         conn = self.conn
+        udata = dict(udata)
         globaluser_attrs = set(globaluser_all_attrs).intersection(udata.keys())
         if globaluser_attrs:
             for k in globaluser_attrs:
