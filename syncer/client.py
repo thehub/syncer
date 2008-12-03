@@ -1,4 +1,7 @@
-import functools
+try:
+    import functools
+except: # oh, pity you still on python 2.4
+    import compat as functools
 
 import cookielib, cPickle
 
