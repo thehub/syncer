@@ -100,12 +100,12 @@ class Event(object):
         self.subscribers_s = []
         self.subscribers = []
         self.argsfilterer = lambda args, kw: (args, kw)
-        self.join = config.defaults.event_join
+        self.join = config.event_join
         self.transactional = True
 
     def addSubscriber(self, subscriber):
         handler = getattr(subscriber, self.name, getattr(subscriber, "onAnyEvent", None))
-        if getattr(handler, "block", config.defaults.eventhandler_block):
+        if getattr(handler, "block", config.eventhandler_block):
             self.subscribers_s.append(subscriber)
         else:
             self.subscribers.append(subscriber)

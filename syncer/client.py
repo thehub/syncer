@@ -16,6 +16,8 @@ class SyncerClient(object):
         self.sessiongetter = sessiongetter
         if config.client_disabled:
             self.publishEvent = lambda *args, **kw: errors.getClientError(errors.syncer_client_disabled)
+        else:
+            print "SyncerClient initialized for %s:%s -> %s" % (config.host, config.port, config.ldap_uri)
 
     def getSyncerToken(self):
         return self.sessiongetter().get('syncertoken', None)
