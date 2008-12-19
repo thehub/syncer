@@ -48,9 +48,11 @@ def reload():
     Pyro.config.PYRO_LOGFILE = "daemon.log"
     Pyro.config.PYRO_TRACELEVEL = 1
     Pyro.config.PYROSSL_CERTDIR = ssl_dir
-    if syncer_use_ssl:
+    if use_ssl:
         globals()['syncer_uri'] =  "PYROLOCSSL://%s:%s/%s" % (host, port, apppath)
         globals()['pyro_protocol'] = "PYROSSL"
     
 
     return True
+
+reload()
