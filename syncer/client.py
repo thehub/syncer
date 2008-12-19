@@ -11,7 +11,11 @@ import Pyro.errors
 import errors, config
 
 class SyncerClient(object):
-    def __init__(self, appname, sessiongetter,client_disabled=config.client_disabled,syncer_uri=config.syncer_uri):
+    def __init__(self, appname, sessiongetter,client_disabled=-1,syncer_uri=-1):
+        if client_disabled == -1:
+            client_disabled=config.client_disabled
+        if syncer_uri == -1:
+            syncer_uri=config.syncer_uri
         self.appname = appname
         self.sessiongetter = sessiongetter
         self.syncer_uri = syncer_uri 
@@ -30,6 +34,7 @@ class SyncerClient(object):
         return user_agent == config.user_agent
 
     def publishEvent(self, eventname, syncertoken, *args, **kw):
+        print config.syncer_uri
         syncer = Pyro.core.getProxyForURI(self.syncer_uri)
         args = [cPickle.dumps(arg, -1) for arg in args]
         kw = dict(((cPickle.dumps(k, -1), cPickle.dumps(v, -1)) for (k,v) in kw.items()))
