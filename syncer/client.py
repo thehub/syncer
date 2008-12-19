@@ -11,10 +11,11 @@ import Pyro.errors
 import errors, config
 
 class SyncerClient(object):
-    def __init__(self, appname, sessiongetter):
+    def __init__(self, appname, sessiongetter,client_disabled=config.client_disabled,syncer_uri=config.syncer_uri):
         self.appname = appname
         self.sessiongetter = sessiongetter
-        if config.client_disabled:
+        self.syncer_uri = syncer_uri 
+        if client_disabled:
             self.publishEvent = lambda *args, **kw: errors.getClientError(errors.syncer_client_disabled)
         else:
             print "SyncerClient initialized for %s:%s -> %s" % (config.host, config.port, config.ldap_uri)
@@ -29,7 +30,7 @@ class SyncerClient(object):
         return user_agent == config.user_agent
 
     def publishEvent(self, eventname, syncertoken, *args, **kw):
-        syncer = Pyro.core.getProxyForURI(config.syncer_uri)
+        syncer = Pyro.core.getProxyForURI(self.syncer_uri)
         args = [cPickle.dumps(arg, -1) for arg in args]
         kw = dict(((cPickle.dumps(k, -1), cPickle.dumps(v, -1)) for (k,v) in kw.items()))
         try:
