@@ -103,7 +103,7 @@ if os.system(sslsetup_cmd) != 0:
 
 daemon = Pyro.core.Daemon(prtcol=config.pyro_protocol)
 
-uri = daemon.connect(syncer, config.syncer_path)
+uri = daemon.connect(syncer, config.apppath)
 print"Listening on " , uri
 
 # enter the service loop.
