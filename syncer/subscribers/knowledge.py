@@ -26,14 +26,34 @@ class Knowledge(bases.WebApp):
 
     def onUserMod(self,username,data):
         print 'in onUserMod in knowledge'
-        save_url = 'http://%s/Members/%s/modifyBySyncer' % (self.domainname,username)
+        #Note that this browser view does not send edit events!
+        save_url = 'http://%s/Members/%s/modifyUserBySyncer' % (self.domainname,username)
         self.makeHttpReq(save_url, data)
         #I think we need to check here
         return True
 
+    def onUserAdd(self,username,data):
+        print 'in onUserAdd in knowledge'
+        data['addUserName'] = username
+        add_url = 'http://%s/Members/addUserBySyncer' % (self.domainname)
+        self.makeHttpReq(add_url, data)
+        #I think we need to check here
+        return True
 
+    def onUserDel(self,username):
+        print 'in onUserDel in knowledge'
+        data = dict(delUserName = username)
+        del_url = 'http://%s/Members/delUserBySyncer' % (self.domainname)
+        self.makeHttpReq(del_url, data)
+        #I think we need to check here
+        return True
+
+    onUserMod.block = True
+    onUserAdd.block = True
+    onUserDel.block = True
 
     onSignon.block = False
+    
     onSignon.saveargs = onSignonSaveArgs
 
 
