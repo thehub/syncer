@@ -29,7 +29,6 @@ subscriber_adminemail = ""
 ldap_uri = "ldap://ldap.the-hub.net"
 session_idletimeout = datetime.timedelta(0, 60 * 24 * 60 * 60) # 60 days of inactivity should expire the session
 client_disabled = False
-syncer_uri =  "PYROLOC://%s:%s/%s" % (host, port, apppath)
 pyro_protocol = "PYRO"
 
 # event/ sybscriber defaults. 
@@ -51,6 +50,8 @@ def reload():
     if use_ssl:
         globals()['syncer_uri'] =  "PYROLOCSSL://%s:%s/%s" % (host, port, apppath)
         globals()['pyro_protocol'] = "PYROSSL"
+    else:
+        globals()['syncer_uri'] =  "PYROLOC://%s:%s/%s" % (host, port, apppath)
     
 
     return True
