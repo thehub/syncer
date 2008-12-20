@@ -34,7 +34,6 @@ class SyncerClient(object):
         return user_agent == config.user_agent
 
     def publishEvent(self, eventname, syncertoken, *args, **kw):
-        print config.syncer_uri
         syncer = Pyro.core.getProxyForURI(self.syncer_uri)
         args = [cPickle.dumps(arg, -1) for arg in args]
         kw = dict(((cPickle.dumps(k, -1), cPickle.dumps(v, -1)) for (k,v) in kw.items()))
