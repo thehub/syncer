@@ -160,10 +160,10 @@ class LDAPWriter(bases.SubscriberBase):
         if 'homeHub' in udata:
             user_attrs = set(user_all_attrs).intersection(udata.keys())
             if user_attrs:
-                localuserdn = "uid=%s,ou=users,%s" % (uid, udata['homeHub'])
+                localuserdn = "uid=%s,ou=users,%s" % (username, udata['homeHub'])
                 add_record = [('objectClass', tuple(itertools.chain(*[oc_entries[name] for name in user_ocnames])))] + \
                              [(k,v) for (k,v) in udata.items() if k in user_all_attrs]
-                self.conn.add_s(localuserdn % (username, hubId), add_record)
+                self.conn.add_s(localuserdn, add_record)
         return True
     onUserAdd.block = True
     onUserAdd.rollback = rollback
