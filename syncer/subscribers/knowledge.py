@@ -12,7 +12,7 @@ class Knowledge(bases.WebApp):
     def onSignonSaveArgs(self, u, p, cookies):
         return (u, utils.masked, utils.masked)
 
-    def onSignon(self, u, p, cookies):
+    def onSignon(self, u, p, cookies=[]):
         login_url = "http://%s/login_form" % self.domainname
         cj = cookielib.CookieJar()
         for c in cookies:

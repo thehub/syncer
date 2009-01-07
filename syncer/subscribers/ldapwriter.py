@@ -67,9 +67,7 @@ class Proxy(object):
         """
         result = self._conn.add_s(*args, **kw)
         dn, mod_list = args
-        rdn, basedn = dn.split(',', 1)
-        attrs = list(self._conn.search_s(basedn, ldap.SCOPE_ONELEVEL, '(%s)' % rdn, ['*'])[0][1].items())
-        data = ("delete_s", dn, attrs)
+        data = ("delete_s", dn)
         rbdata = transactions.RollbackData(subscriber_name=subscriber_name, data=data, transaction=currentTransaction())
         return result
 
@@ -115,13 +113,14 @@ class Proxy(object):
 # LDAP Events
 def rollback(rbdata):
     conn = currentSession()['ldapconn']
-    action, dn, modlist = rbdata.data
+    action = rbdata.data[0]
+    action_args = rbdata.data[1:]
     f = getattr(conn._conn, action)
     logger.debug("LDAP Rollback: %s %s" % (dn, action))
     try:
-        f(dn, modlist)
+        f(*action_args)
     except Exception, err:
-        msg = "LDAP Rollback: %s %s" % (dn, action)
+        msg = "LDAP Rollback: %s" % " ".join(action)
         logger.error(msg)
         raise
 
@@ -133,7 +132,7 @@ class LDAPWriter(bases.SubscriberBase):
 
     conn = property(getConn)
         
-    def onSignon(self, u, p, cookies):
+    def onSignon(self, u, p, cookies=[]):
         u, p = ldapSafe((u, p))
         if u == "ldapadmin":
             dn = "uid=%s,o=the-hub.net" % u
