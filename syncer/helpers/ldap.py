@@ -132,10 +132,12 @@ class UidMapping(AttributeMapping):
     def _toApp(self, o, in_attrs, out_attrs):
         out_attrs[self.app_attrs[0]] = in_attrs['uid']
 
-class MD5Password(AttributeMapping):
+class PasswordMapping(AttributeMapping):
     def _toLDAP(self, o, in_attrs, out_attrs):
         hexed_pass = (o and getattr(o, self.app_attrs[0])) or in_attrs[self.app_attrs[0]]
         out_attrs['userPassword'] = "{MD5}%s" % base64.b64encode(binascii.unhexlify(hexed_pass))
+        out_attrs['sambaLMPassword'] = o.lanman_hash
+        out_attrs['sambaNTPassword'] = o.nt_hash
     def _toApp(self, o, in_attrs, out_attrs):
         out_attrs[self.app_attrs[0]] = binascii.hexlify(base64.b64decode(in_attrs['userPassword'][4:]))
 
@@ -225,7 +227,7 @@ object_maps = dict (
         SimpleMapping('homeTelephoneNumber', 'home'),
         SimpleMapping('facsimileTelephoneNumber', 'fax'),
         SimpleMapping('dateCreated', 'created'),
-        MD5Password('userPassword', 'password'),
+        PasswordMapping('userPassword', ('password', 'unix_hash', 'lanman_hash', 'nt_hash')),
         Many2OneMapping('mailAlso', ('email2', 'email3')),
         SimpleMapping('postalAddress', 'address'),
         SimpleMapping('skypeId', 'skype_id'),
