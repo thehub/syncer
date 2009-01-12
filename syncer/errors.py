@@ -43,10 +43,10 @@ def hasFailed(result):
             return True
     return False
 
-def res2errstr(result):
+def res2errstr(result, sep="\n"):
     if isinstance(result, Exception):
         return "Remote exception" + ''.join(Pyro.util.getPyroTraceback(result))
-    return '\n'.join([err2str(handler_res) for handler_res in result.values()])
+    return sep.join([err2str(handler_res) for handler_res in result.values() if handler_res['retcode'] != success])
 
 def err2str(err):
     if isinstance(err, (Exception, str)):
@@ -57,4 +57,4 @@ def err2str(err):
         template = err_tuple[1]
     except IndexError:
         template = default_err_tmpl
-    return "%-12s %s" % ("(%s)" % err['appname'], Template(template).safe_substitute(err))
+    return "%-12s %s: %s" % ("(%s)" % err['appname'], Template(template).safe_substitute(err), err['result'] or "")

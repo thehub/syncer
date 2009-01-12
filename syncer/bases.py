@@ -147,7 +147,7 @@ class Event(object):
                         if not type(err) in picklables or not isinstance(err, picklables):
                             err = str(err)
                             logger.warn("Unpicklable exception: %s" % str(err))
-                        retcode = (errors.app_write_failed, dict(appname=subscriber.name))
+                        retcode = errors.app_write_failed
                         transaction.results[subscriber.name] = dict(appname = subscriber.name, retcode = retcode, result = err)
                         break
                     else:
