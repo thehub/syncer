@@ -122,7 +122,6 @@ class ModUser(SyncerTestCase):
 class ModUserAsMember(ModUser):
     pass
 
-
 def main():
     setupLogging()
     conns = SyncerConns()
