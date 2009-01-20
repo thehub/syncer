@@ -37,8 +37,7 @@ class SyncerTestCase(unittest.TestCase):
         except Exception, err:
             msg = "(%s) %s" % (self.__class__.__name__, str(err))
             logger.error(msg)
-            #raise
-            sys.exit(0)
+            sys.exit(1)
 
 class SignOn(SyncerTestCase):
     e_ret = True
@@ -65,8 +64,7 @@ class AddHub(SyncerTestCase):
         if not self.conn.clnt.isSuccessful(res):
             self.fail(syncer.errors.res2errstr(res, ", "))
 
-
-class AddHubAsHost(AddHub):
+class AddHubAsSuperUser(AddHub):
     e_ret = True
 
 class TearDownModule():
@@ -75,7 +73,7 @@ class TearDownModule():
 def setupLogging():
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
-    formatter = logging.Formatter('%(asctime)s %(levelname)-8s: line %(lineno)s %(message)s', datefmt="%Y.%m.%d %H:%M:%S")
+    formatter = logging.Formatter('%(asctime)s %(levelname)-8s: %(message)s', datefmt="%Y.%m.%d %H:%M:%S")
 
     logger.setLevel(logging.DEBUG)
     console = logging.StreamHandler()
@@ -95,6 +93,9 @@ class SignOnAsRoot(SignOn):
 class SignOnAsUser1(SignOn):
     pass
 
+class SignOnAsSuperUser(SignOn):
+    pass
+
 class AddUser(SyncerTestCase):
     def __init__(self, conn, data):
         self.conn = conn
@@ -105,6 +106,27 @@ class AddUser(SyncerTestCase):
             self.fail(syncer.errors.res2errstr(res))
 
 class AddUser1AsRoot(AddUser):
+    pass
+
+class AddSuperuserGroup(SyncerTestCase):
+    def __init__(self, conn, data):
+        self.conn = conn
+        self.data = data
+    def _run(self):
+        tr_id, res = self.conn.clnt.onGroupAdd(self.data.name, self.data.data)
+        if not self.conn.clnt.isSuccessful(res):
+            self.fail(syncer.errors.res2errstr(res, ", "))
+
+class AddHubspaceadminToSuperusers(SyncerTestCase):
+    def __init__(self, conn, data):
+        self.conn = conn
+        self.data = data
+    def _run(self):
+        tr_id, res = self.conn.clnt.onGroupMod(self.data.name, self.data.moddata)
+        if not self.conn.clnt.isSuccessful(res):
+            self.fail(syncer.errors.res2errstr(res, ", "))
+
+class AddSuperuser(AddUser):
     pass
 
 class SyncerConns(object):
@@ -126,12 +148,20 @@ def main():
     setupLogging()
     conns = SyncerConns()
     signOnAsRoot = SignOnAsRoot(testdata.root_u, testdata.root_p)
-    conns.root_conn = signOnAsRoot()
-    addHub1AsRoot = AddHub(conns.root_conn, testdata.hub1)
-    addHub1AsRoot()
-    addUser1AsRoot = AddUser1AsRoot(conns.root_conn, testdata.hub1.user1)
-    addUser1AsRoot()
+    signOnAsSuperUser = SignOnAsSuperUser(testdata.superuser.uid, testdata.superuser.p)
     signOnAsUser1 = SignOnAsUser1(testdata.hub1.user1.uid, testdata.hub1.user1.p)
+    conns.root_conn = signOnAsRoot()
+    addSuperuserGroup = AddSuperuserGroup(conns.root_conn, testdata.superusergrp)
+    addSuperuser = AddSuperuser(conns.root_conn, testdata.superuser)
+    addHubspaceadminToSuperusers = AddHubspaceadminToSuperusers(conns.root_conn, testdata.superusergrp)
+    addSuperuserGroup()
+    addSuperuser()
+    addHubspaceadminToSuperusers()
+    conns.su_conn = signOnAsSuperUser()
+    addHub1AsSuperuser = AddHubAsSuperUser(conns.su_conn, testdata.hub1)
+    addUser1AsRoot = AddUser1AsRoot(conns.root_conn, testdata.hub1.user1)
+    addHub1AsSuperuser()
+    addUser1AsRoot()
     conns.user1_conn = signOnAsUser1()
     modUserAsMember = ModUserAsMember(conns.user1_conn, testdata.hub1.user1)
     modUserAsMember()

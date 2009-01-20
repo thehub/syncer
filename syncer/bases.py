@@ -120,7 +120,7 @@ class Event(object):
         self.argsfilterer = f
         
     def runHandler(self, sid, transaction, f, args, kw, subscriber, th_q):
-        attempts = getattr(f, 'attempts', 2)
+        attempts = getattr(f, 'attempts', config.eventhandler_attempts)
         syncer_tls.transaction = transaction
         syncer_tls.sid = sid
         try:
@@ -142,11 +142,13 @@ class Event(object):
                     except Exception, err:
                         print err
                     print '================'
-                    logger.error("%s %s #%d: failed with error (%s)" % (subscriber.name, self.name, attempt, str(err)))
+                    username = currentSession().get('username', 'anonymous')
+                    logger.error("%s %s as (%s) #%d: failed with error (%s)" % (subscriber.name, self.name, username, attempt, str(err)))
                     if is_last_attempt:
                         if not type(err) in picklables or not isinstance(err, picklables):
                             err = str(err)
-                            logger.warn("Unpicklable exception: %s" % str(err))
+                            #logger.warn("Unpicklable exception: %s" % str(err))
+                            logger.exception("Unpicklable exception")
                         retcode = errors.app_write_failed
                         transaction.results[subscriber.name] = dict(appname = subscriber.name, retcode = retcode, result = err)
                         break

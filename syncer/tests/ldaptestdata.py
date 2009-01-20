@@ -76,4 +76,26 @@ hub1.user1.data = [('billingTelephoneNumber', None),
                 ('sn', u'Tiwatne'),
                 ('billingMail', None),
                 ('billingReminderKey', u'66cbf1d00bc76b9a34f82388f5c6b85f')]
+
 hub1.user1.moddata = [('title', 'Mr.')]
+
+superuser = TestData()
+superuser.uid = "hubspaceadmin"
+superuser.p = "secret"
+superuser.data = [ ('uid', "hubspaceadmin"),
+                ('sn', ['admin']),
+                ('active', ['0']),
+                ('userPassword', '{MD5}Xr4ilOzQ4PCOq3aQ0qbuaQ=='),
+                ('cn', 'Hubspace Admin') ]
+
+
+superusergrp = TestData()
+superusergrp.name = "superusers"
+superusergrp.data = [('cn', 'superusers'),
+                  ('displayName', 'superusers'),
+                  ('hubGroupId', 1),
+                  ('gidNumber', 9001),
+                  ('dateCreated', datetime.datetime(2009, 1, 1, 18, 17, 20))]
+
+superusergrp.moddata = [('member',['uid=hubspaceadmin,ou=users,o=the-hub.net'])]
+

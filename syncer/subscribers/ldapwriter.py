@@ -13,6 +13,7 @@ hubdn = "hubId=%(hubId)s,ou=hubs," + basedn
 leveldn = "level=%(level)s,ou=roles," + hubdn
 accesspolicydn = "policyId=%(policyId)s,ou=policies," + hubdn
 opentimedn = "openTimeId=%(openTimeId)s," + accesspolicydn
+globalgrpdn = "cn=%(name)s,ou=groups," + basedn
 
 conn = ldap.ldapobject.ReconnectLDAPObject(uri)
 conn.simple_bind_s()
@@ -50,6 +51,15 @@ def getLocalUserDNFromUid(conn, uid):
     attrs_d = conn.search_s(basedn, ldap.SCOPE_ONELEVEL, '(%s)' % rdn, ['*'])[0][1]
     return "uid=%s,ou=users,%s" % (uid, attrs_d['homeHub'])
 
+class LDAPErrorWithHint(Exception):
+    """
+    add a hint to make debug easier
+    try:
+        ldap operation
+    except ldap.SOMEError, err:
+        raise LDAPErrorWithHint("%s %s" % (err, "some hint"))
+    """
+
 # LDAP Proxy
 MOD_ADD, MOD_DELETE, MOD_REPLACE = ldap.MOD_ADD, ldap.MOD_DELETE, ldap.MOD_REPLACE
 subscriber_name = "ldapwriter"
@@ -65,8 +75,13 @@ class Proxy(object):
     def add_s(self, *args, **kw):
         """
         """
-        result = self._conn.add_s(*args, **kw)
         dn, mod_list = args
+        try:
+            result = self._conn.add_s(*args, **kw)
+        except Exception, err:
+            if isinstance(err, ldap.INSUFFICIENT_ACCESS):
+                raise LDAPErrorWithHint('%s while adding "%s"' % (err, dn))
+            raise
         data = ("delete_s", dn)
         rbdata = transactions.RollbackData(subscriber_name=subscriber_name, data=data, transaction=currentTransaction())
         return result
@@ -151,6 +166,8 @@ class LDAPWriter(bases.SubscriberBase):
         user_all_attrs = addAttrs(*user_ocnames)
         add_record = [('objectClass', tuple(itertools.chain(*[oc_entries[name] for name in user_ocnames])))] + \
                      [(k,v) for (k,v) in udata if k in user_all_attrs]
+        print user_all_attrs
+        print add_record
         self.conn.add_s(globaluserdn % username, add_record)
         # Add hubLocalUser record
         user_ocnames = ('hubLocalUser',)
@@ -162,6 +179,7 @@ class LDAPWriter(bases.SubscriberBase):
                 localuserdn = "uid=%s,ou=users,%s" % (username, udata['homeHub'])
                 add_record = [('objectClass', tuple(itertools.chain(*[oc_entries[name] for name in user_ocnames])))] + \
                              [(k,v) for (k,v) in udata.items() if k in user_all_attrs]
+                print add_record
                 self.conn.add_s(localuserdn, add_record)
         return True
     onUserAdd.block = True
@@ -280,6 +298,31 @@ class LDAPWriter(bases.SubscriberBase):
         return True
     onRoleAdd.block = True
     onRoleAdd.rollback = rollback
+
+    @ldapfriendly
+    def onGroupAdd(self, name, data):
+        """
+        When a global group is added
+        """
+        dn = globalgrpdn % locals()
+        add_record = [ ('objectClass', 'hubGlobalGroup'),] + [(k,v) for (k,v) in data]
+        self.conn.add_s(dn, add_record)
+        return True
+    onGroupAdd.block = True
+    onGroupAdd.rollback = rollback
+
+    @ldapfriendly
+    def onGroupMod(self, name, data):
+        dn = globalgrpdn % locals()
+        for (k,v) in data:
+            mod_list = [(ldap.MOD_DELETE, k, None), (ldap.MOD_ADD, k, v)]
+            try:
+                self.conn.modify_s(dn, mod_list)
+            except ldap.NO_SUCH_ATTRIBUTE, err:
+                self.conn.modify_s(dn, mod_list[-1:])
+        return True
+    onGroupMod.block = True
+    onGroupMod.rollback = rollback
 
     @ldapfriendly
     def onAccesspolicyAdd(self, hubId, mod_list):

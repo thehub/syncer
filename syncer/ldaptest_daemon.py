@@ -16,6 +16,7 @@ import subscribers
 
 config.host = "localhost"
 config.ldap_uri = "ldap://localhost"
+config.eventhandler_attempts = 1
 config.reload()
 
 utils.pushToBuiltins("currentTransaction", transactions.currentTransaction)
@@ -51,6 +52,14 @@ syncer.onSignoff.transactional = False
 syncer.onSignoff.join = True
 
 # User/Group events
+syncer.onGroupAdd.addSubscriber(sessionkeeper)
+syncer.onGroupAdd.addSubscriber(ldapwriter)
+syncer.onGroupAdd.join = True
+
+syncer.onGroupMod.addSubscriber(sessionkeeper)
+syncer.onGroupMod.addSubscriber(ldapwriter)
+syncer.onGroupMod.join = True
+
 syncer.onUserAdd.addSubscriber(sessionkeeper)
 syncer.onUserAdd.addSubscriber(ldapwriter)
 syncer.onUserAdd.join = True
