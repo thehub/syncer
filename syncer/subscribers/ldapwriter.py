@@ -353,7 +353,7 @@ class LDAPWriter(bases.SubscriberBase):
         dn = opentimedn % locals()
         self.conn.delete_s(dn)
     onOpentimesDel.block = True
-    #onOpentimesDel.rollback = rollback
+    onOpentimesDel.rollback = rollback
     
     @ldapfriendly
     def onOpentimesAdd(self, policyId, hubId, mod_list):
