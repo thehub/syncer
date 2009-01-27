@@ -77,7 +77,9 @@ class Proxy(object):
         """
         dn, mod_list = args
         try:
+            logger.debug("Adding %s" % dn)
             result = self._conn.add_s(*args, **kw)
+            logger.debug("Added %s" % dn)
         except Exception, err:
             if isinstance(err, ldap.INSUFFICIENT_ACCESS):
                 raise LDAPErrorWithHint('%s while adding "%s"' % (err, dn))
@@ -117,13 +119,12 @@ class Proxy(object):
     def delete_s(self, *args, **kw):
         """
         """
-        result = self._conn.delete_s(*args, **kw)
-        dn, mod_list = args
+        dn = args[0]
         rdn, basedn = dn.split(',', 1)
         attrs = list(self._conn.search_s(basedn, ldap.SCOPE_ONELEVEL, '(%s)' % rdn, ['*'])[0][1].items())
         data = ("add_s", dn, attrs)
         rbdata = transactions.RollbackData(subscriber_name=subscriber_name, data=data, transaction=currentTransaction())
-        return result
+        return self._conn.delete_s(*args, **kw)
 
 # LDAP Events
 def rollback(rbdata):
@@ -329,16 +330,30 @@ class LDAPWriter(bases.SubscriberBase):
         policyId = dict(mod_list)['policyId']
         dn = accesspolicydn % locals()
         add_record = [('objectClass', 'hubLocalPolicy')] + mod_list
-        ret = self.conn.add_s(dn, add_record)
+        self.conn.add_s(dn, add_record)
     onAccesspolicyAdd.block = True
     onAccesspolicyAdd.rollback = rollback
 
     @ldapfriendly
     def onAccesspolicyMod(self, policyId, hubId, mod_list):
         dn = accesspolicydn % locals()
-        conn.modify_s(dn, mod_list)
+        self.conn.modify_s(dn, mod_list)
     onAccesspolicyMod.block = True
     onAccesspolicyMod.rollback = rollback
+
+    @ldapfriendly
+    def onAccesspolicyDel(self, policyId, hubId):
+        dn = accesspolicydn % locals()
+        self.conn.delete_s(dn)
+    onAccesspolicyDel.block = True
+    onAccesspolicyDel.rollback = rollback
+
+    @ldapfriendly
+    def onOpentimesDel(self, openTimeId, policyId, hubId):
+        dn = opentimedn % locals()
+        self.conn.delete_s(dn)
+    onOpentimesDel.block = True
+    #onOpentimesDel.rollback = rollback
     
     @ldapfriendly
     def onOpentimesAdd(self, policyId, hubId, mod_list):

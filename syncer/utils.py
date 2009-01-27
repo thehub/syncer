@@ -26,6 +26,8 @@ def setupLogging():
 
     flog = logging.handlers.RotatingFileHandler(os.path.join(config.logdir, "syncer.log"), 'a', 1024 * 1024, 10)
     flog.setLevel(logging.INFO)
+    if config.__syncerdebug__:
+        flog.setLevel(logging.DEBUG)
     flog.setFormatter(formatter)
     logger.addHandler(flog)
     pushToBuiltins("logger", logger)
