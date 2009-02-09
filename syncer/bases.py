@@ -135,13 +135,6 @@ class Event(object):
                     transaction.results[subscriber.name] = dict(appname = subscriber.name, retcode = errors.success, result = ret)
                     break
                 except Exception, err:
-                    #raise
-                    print '================'
-                    try:
-                        traceback.print_exc(err)
-                    except Exception, err:
-                        print err
-                    print '================'
                     username = currentSession().get('username', 'anonymous')
                     logger.error("%s %s as (%s) #%d: failed with error (%s)" % (subscriber.name, self.name, username, attempt, str(err)))
                     if is_last_attempt:
@@ -217,11 +210,11 @@ class Event(object):
                 transactions.Session.remove()
                 transactions.Session.clear()
 
-        print '========================================'
-        for (sid, session) in sessions.items():
-            print sid, session['username'], session['ldapconn']
-        print transaction.results
-        print '========================================'
+        #print '========================================'
+        #for (sid, session) in sessions.items():
+        #    print sid, session['username'], session['ldapconn']
+        #print transaction.results
+        #print '========================================'
         return tr_id, transaction.results
 
     def onFailure(self, transaction, th_q, args, kw):

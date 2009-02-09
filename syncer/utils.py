@@ -13,16 +13,21 @@ def pushToBuiltins(name, val):
     __builtins__[name] = val
 
 def setupLogging():
+    class TBFilter(logging.Filter):
+        def filter(self, rec):
+            return "Unpicklable exception" not in rec.msg
+
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
-    formatter = logging.Formatter('%(asctime)s %(levelname)-8s:%(funcName)s: %(message)s', datefmt="%H:%M:%S")
+    formatter = logging.Formatter('%(asctime)s %(levelname)-8s: %(message)s', datefmt="%H:%M:%S")
 
+    logger.setLevel(logging.DEBUG)
+    console = logging.StreamHandler()
+    console.setFormatter(formatter)
     if config.__syncerdebug__:
-        logger.setLevel(logging.DEBUG)
-        console = logging.StreamHandler()
-        console.setFormatter(formatter)
         console.setLevel(logging.DEBUG)
-        logger.addHandler(console)
+    console.addFilter(TBFilter())
+    logger.addHandler(console)
 
     flog = logging.handlers.RotatingFileHandler(os.path.join(config.logdir, "syncer.log"), 'a', 1024 * 1024, 10)
     flog.setLevel(logging.INFO)

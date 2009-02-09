@@ -2,7 +2,7 @@ import itertools
 import datetime
 import ldap
 import ldap.schema
-import bases, utils, transactions
+import bases, utils, transactions, config
 from helpers.ldap import ldapfriendly, ldapSafe
 
 uri = "ldap://localhost"
@@ -64,6 +64,14 @@ class LDAPErrorWithHint(Exception):
 MOD_ADD, MOD_DELETE, MOD_REPLACE = ldap.MOD_ADD, ldap.MOD_DELETE, ldap.MOD_REPLACE
 subscriber_name = "ldapwriter"
 
+def dumpcall(f):
+    if config.__syncerdebug__:
+        def wrap(*args, **kw):
+            logger.debug("LDAP CALL %s: %s %s" % (f.func_name, args[1:], kw))
+            return f(*args, **kw)
+        return wrap
+    return f
+
 class Proxy(object):
     def __init__(self, u, p):
         """
@@ -72,6 +80,7 @@ class Proxy(object):
         conn.simple_bind_s(u, p)
         self._conn = conn
 
+    @dumpcall
     def add_s(self, *args, **kw):
         """
         """
@@ -88,6 +97,7 @@ class Proxy(object):
         rbdata = transactions.RollbackData(subscriber_name=subscriber_name, data=data, transaction=currentTransaction())
         return result
 
+    @dumpcall
     def modify_s(self, *args, **kw):
         dn, mod_list = args
         sorter = lambda x: x[1]
@@ -116,6 +126,7 @@ class Proxy(object):
         rbdata = transactions.RollbackData(subscriber_name=subscriber_name, data=data, transaction=currentTransaction())
         return result
 
+    @dumpcall
     def delete_s(self, *args, **kw):
         """
         """
