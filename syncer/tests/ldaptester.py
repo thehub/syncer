@@ -108,6 +108,9 @@ class AddUser(SyncerTestCase):
 class AddUser1AsRoot(AddUser):
     pass
 
+class AddUser1AsSuperuser(AddUser):
+    pass
+
 class AddSuperuserGroup(SyncerTestCase):
     def __init__(self, conn, data):
         self.conn = conn
@@ -159,9 +162,11 @@ def main():
     addHubspaceadminToSuperusers()
     conns.su_conn = signOnAsSuperUser()
     addHub1AsSuperuser = AddHubAsSuperUser(conns.su_conn, testdata.hub1)
-    addUser1AsRoot = AddUser1AsRoot(conns.root_conn, testdata.hub1.user1)
+    #addUser1AsRoot = AddUser1AsRoot(conns.root_conn, testdata.hub1.user1)
+    addUser1AsSuperuser = AddUser1AsSuperuser(conns.su_conn, testdata.hub1.user1)
     addHub1AsSuperuser()
-    addUser1AsRoot()
+    #addUser1AsRoot()
+    addUser1AsSuperuser()
     conns.user1_conn = signOnAsUser1()
     modUserAsMember = ModUserAsMember(conns.user1_conn, testdata.hub1.user1)
     modUserAsMember()
