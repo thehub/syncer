@@ -9,6 +9,10 @@ import base64
 username2globaluserdn = lambda user_name: "uid=%s,ou=users,o=the-hub.net" % user_name
 globaluserdn2username = lambda dn: dn.split(',')[0].split('=')[1]
 policydn = "policyId=%(policyId)s,ou=policies,hubId=%(hubId)s,ou=hubs,o=the-hub.net"
+# Posix uid and gid numbers for normal users start with offset 10000 while
+# those of special/system users start with offset 9000
+posix_uid_offset = 10000
+posix_gid_offset = 10000
 
 class AttributeMapper(list):
     def __init__(self, *args):
@@ -68,6 +72,16 @@ class SimpleMapping(AttributeMapping):
     def _toApp(self, o, in_attrs, out_attrs):
         out_attrs[self.app_attrs[0]] = in_attrs[self.ldap_attrs[0]]
 
+class posixUidNumberMapping(AttributeMapping):
+    def _toLDAP(self, o, in_attrs, out_attrs):
+        out_attrs['hubUserId'] = in_attrs[self.app_attrs[0]]
+        out_attrs['uidNumber'] = posix_uid_offset + in_attrs[self.app_attrs[0]]
+
+class posixGidNumberMapping(AttributeMapping):
+    def _toLDAP(self, o, in_attrs, out_attrs):
+        out_attrs['roleId'] = in_attrs[self.app_attrs[0]]
+        out_attrs['gidNumber'] = posix_gid_offset + in_attrs[self.app_attrs[0]]
+
 class Many2OneMapping(AttributeMapping):
     def _toApp(self, o, in_attrs, out_attrs):
         vtuples = zip(self.app_attrs, in_attrs[self.ldap_attrs[0]])
@@ -82,8 +96,9 @@ class HubId2dnMapping(AttributeMapping):
     def _toLDAP(self, o, in_attrs, out_attrs):
         tmpl = 'hubId=%(hub_id)s,ou=hubs,o=the-hub.net'
         loc_attr = self.app_attrs[0]
-        hub_id = in_attrs.get(loc_attr, None) or getattr(o, loc_attr).id
-        out_attrs[self.ldap_attrs[0]] = tmpl % locals()
+        hub_id = in_attrs.get(loc_attr, None) or getattr(o, loc_attr, None) and getattr(o, loc_attr).id
+        if hub_id:
+            out_attrs[self.ldap_attrs[0]] = tmpl % locals()
 
 class OtherHubsMapping(AttributeMapping):
     def _toApp(self, o, in_attrs, out_attrs):
@@ -232,7 +247,7 @@ object_maps = dict (
         SimpleMapping('postalAddress', 'address'),
         SimpleMapping('skypeId', 'skype_id'),
         SimpleMapping('hubIdentitySIPURI', 'sip_id'),
-        SimpleMapping('hubUserId', 'id'),
+        posixUidNumberMapping(('hubUserId', 'uidNumber'), 'id'),
         SimpleMapping('labeledURI', 'website'),
         HubId2dnMapping('homeHub', 'homeplaceID'),
         AccessPoliciesMapping('policyReference', 'access_policies'),
@@ -286,7 +301,7 @@ object_maps = dict (
         ),
     group = AttributeMapper (
         RoleMapping(('cn', 'level'), 'level'),
-        SimpleMapping('roleId', 'id'),
+        posixGidNumberMapping(('roleId', 'gidNumber'), 'id'),
         UserGroupMapping('member', 'user_name')
         ),
     policy = AttributeMapper (
