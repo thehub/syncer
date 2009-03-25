@@ -144,9 +144,6 @@ class ModUser(SyncerTestCase):
         if not self.conn.clnt.isSuccessful(res):
             self.fail(syncer.errors.res2errstr(res))
 
-class ModUserAsMember(ModUser):
-    pass
-
 def main():
     setupLogging()
     conns = SyncerConns()
@@ -168,8 +165,10 @@ def main():
     #addUser1AsRoot()
     addUser1AsSuperuser()
     conns.user1_conn = signOnAsUser1()
-    modUserAsMember = ModUserAsMember(conns.user1_conn, testdata.hub1.user1)
+    modUserAsSuperuser = ModUser(conns.su_conn, testdata.hub1.user1)
+    modUserAsMember = ModUser(conns.user1_conn, testdata.hub1.user1)
     modUserAsMember()
+    modUserAsSuperuser()
 
 
 if __name__ == '__main__':
