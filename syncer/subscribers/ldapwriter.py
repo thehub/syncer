@@ -81,6 +81,10 @@ class Proxy(object):
         self._conn = conn
 
     @dumpcall
+    def search_s(self, *args, **kw):
+        return self._conn.search_s(*args, **kw)
+
+    @dumpcall
     def add_s(self, *args, **kw):
         """
         """
@@ -108,7 +112,7 @@ class Proxy(object):
         
         # 1. Backup old entry if reqd
         if MOD_DELETE in [op[0] for op in mod_list]:
-            old_values = self._conn.search_s(basedn, ldap.SCOPE_ONELEVEL, '(%s)' % rdn, ['*'])
+            old_values = self.search_s(dn, ldap.SCOPE_BASE, '(%s)' % rdn, byattrs.keys())
             old_values = old_values[0][1]
         # 2. Now actual LDAP operation. If we fail here we don't need rollback data
         result = self._conn.modify_s(*args, **kw)
@@ -132,7 +136,7 @@ class Proxy(object):
         """
         dn = args[0]
         rdn, basedn = dn.split(',', 1)
-        attrs = list(self._conn.search_s(basedn, ldap.SCOPE_ONELEVEL, '(%s)' % rdn, ['*'])[0][1].items())
+        attrs = list(self.search_s(basedn, ldap.SCOPE_ONELEVEL, '(%s)' % rdn, ['*'])[0][1].items())
         data = ("add_s", dn, attrs)
         rbdata = transactions.RollbackData(subscriber_name=subscriber_name, data=data, transaction=currentTransaction())
         return self._conn.delete_s(*args, **kw)
@@ -178,8 +182,6 @@ class LDAPWriter(bases.SubscriberBase):
         user_all_attrs = addAttrs(*user_ocnames)
         add_record = [('objectClass', tuple(itertools.chain(*[oc_entries[name] for name in user_ocnames])))] + \
                      [(k,v) for (k,v) in udata if k in user_all_attrs]
-        print user_all_attrs
-        print add_record
         self.conn.add_s(globaluserdn % username, add_record)
         # Add hubLocalUser record
         user_ocnames = ('hubLocalUser',)
