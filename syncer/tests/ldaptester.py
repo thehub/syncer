@@ -144,6 +144,15 @@ class ModUser(SyncerTestCase):
         if not self.conn.clnt.isSuccessful(res):
             self.fail(syncer.errors.res2errstr(res))
 
+class ModGlobalGroup(SyncerTestCase):
+    def __init__(self, conn, data):
+        self.conn = conn
+        self.data = data
+    def _run(self):
+        tr_id, res = self.conn.clnt.onGroupMod(self.data.name, self.data.newmember)
+        if not self.conn.clnt.isSuccessful(res):
+            self.fail(syncer.errors.res2errstr(res))
+
 def main():
     setupLogging()
     conns = SyncerConns()
@@ -160,6 +169,7 @@ def main():
     conns.su_conn = signOnAsSuperUser()
     addHub1AsSuperuser = AddHubAsSuperUser(conns.su_conn, testdata.hub1)
     addUser1AsSuperuser = AddUser1AsSuperuser(conns.su_conn, testdata.hub1.user1)
+    modGlobalGroup = ModGlobalGroup(conns.su_conn, testdata.superusergrp)
     addHub1AsSuperuser()
     addUser1AsSuperuser()
     conns.user1_conn = signOnAsUser1()
@@ -167,6 +177,7 @@ def main():
     modUserAsMember = ModUser(conns.user1_conn, testdata.hub1.user1)
     modUserAsMember()
     modUserAsSuperuser()
+    modGlobalGroup()
 
 
 if __name__ == '__main__':

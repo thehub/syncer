@@ -79,7 +79,7 @@ class posixUidNumberMapping(AttributeMapping):
 
 class posixGidNumberMapping(AttributeMapping):
     def _toLDAP(self, o, in_attrs, out_attrs):
-        out_attrs['roleId'] = in_attrs[self.app_attrs[0]]
+        out_attrs[self.ldap_attrs[0]] = in_attrs[self.app_attrs[0]]
         out_attrs['gidNumber'] = posix_gid_offset + in_attrs[self.app_attrs[0]]
 
 class Many2OneMapping(AttributeMapping):
@@ -160,7 +160,19 @@ class UserGroupMapping(AttributeMapping):
     def _toLDAP(self, o, in_attrs, out_attrs):
         out_attrs[self.ldap_attrs[0]] = username2globaluserdn(o.user.user_name)
     def _toApp(self, o, in_attrs, out_attrs):
-        out_attrs[self.app_attrs[0]] = globaluserdn2username(self.ldap_attrs[0])
+        out_attrs[self.app_attrs[0]] = globaluserdn2username(self.ldap_attrs[0]) # TODO this should be user object
+
+class GroupDiplayName(AttributeMapping):
+    def _toLDAP(self, o, in_attrs, out_attrs):
+        out_attrs[self.ldap_attrs[0]] = o.group.group_name
+    def _toApp(self, o, in_attrs, out_attrs):
+        raise NotImplemented
+
+class GroupCreatedDate(AttributeMapping):
+    def _toLDAP(self, o, in_attrs, out_attrs):
+        out_attrs[self.ldap_attrs[0]] = o.group.created
+    def _toApp(self, o, in_attrs, out_attrs):
+        raise NotImplemented
 
 class AccessPoliciesMapping(AttributeMapping):
     def _toLDAP(self, o, in_attrs, out_attrs):
@@ -300,11 +312,18 @@ object_maps = dict (
         SimpleMapping('billingPaymentTerms', 'payment_terms'),
         SimpleMapping('hubImageMimetype', 'logo_mimetype'),
         ),
-    group = AttributeMapper (
+    role = AttributeMapper (
         RoleMapping(('cn', 'level'), 'level'),
         posixGidNumberMapping(('roleId', 'gidNumber'), 'id'),
-        UserGroupMapping('member', 'user_name')
+        UserGroupMapping('member', 'user')
         ),
+    group = AttributeMapper (
+        GroupDiplayName('displayName', 'id'),
+        GroupCreatedDate('dateCreated', 'id'),
+        posixGidNumberMapping(('hubGroupId', 'gidNumber'), 'id'),
+        UserGroupMapping('member', 'user')
+        ),
+
     policy = AttributeMapper (
         HubId2dnMapping('policyLocation', 'locationID'),
         SimpleMapping('policyPrecedence', 'precedence'),

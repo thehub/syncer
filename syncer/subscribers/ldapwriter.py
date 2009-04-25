@@ -199,7 +199,6 @@ class LDAPWriter(bases.SubscriberBase):
                 localuserdn = "uid=%s,ou=users,%s" % (username, udata['homeHub'])
                 add_record = [('objectClass', tuple(itertools.chain(*[oc_entries[name] for name in user_ocnames])))] + \
                              [(k,v) for (k,v) in udata.items() if k in user_all_attrs]
-                print add_record
                 self.conn.add_s(localuserdn, add_record)
         return True
     onUserAdd.block = True
@@ -308,12 +307,15 @@ class LDAPWriter(bases.SubscriberBase):
     onHubMod.rollback = rollback
 
     @ldapfriendly
-    def onRoleAdd(self, hubId, level, data):
+    def onRoleAdd(self, hubId, level, data): # TODO level is unused
         """
         When a new role is added for a hub, same as new group in HubSpace
         """
         dn = leveldn % locals()
-        add_record = [ ('objectClass', 'hubLocalRole'),] + [(k,v) for (k,v) in data]
+        ocnames = ('hubLocalRole',)
+        all_attrs = addAttrs(*ocnames)
+        add_record = [('objectClass', tuple(itertools.chain(*[oc_entries[name] for name in ocnames])))] + \
+                     [(k,v) for (k,v) in data if k in all_attrs]
         try:
             self.conn.add_s(dn, add_record)
         except ldap.ALREADY_EXISTS:
@@ -338,6 +340,10 @@ class LDAPWriter(bases.SubscriberBase):
     @ldapfriendly
     def onGroupMod(self, name, data):
         dn = globalgrpdn % locals()
+        ocnames = ('hubGlobalGroup',)
+        all_attrs = addAttrs(*ocnames)
+        add_record = [('objectClass', tuple(itertools.chain(*[oc_entries[name] for name in ocnames])))] + \
+                     [(k,v) for (k,v) in data if k in all_attrs]
         for (k,v) in data:
             mod_list = [(ldap.MOD_DELETE, k, None), (ldap.MOD_ADD, k, v)]
             try:

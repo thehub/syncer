@@ -35,7 +35,7 @@ hub1.user1.p = "secret"
 hub1.user1.hubUserId = 2
 hub1.user1.data = [('billingTelephoneNumber', None),
                 ('cn', u'Shekhar Tiwatne'),
-                ('uid', u'shon'),
+                ('uid', hub1.user1.uid),
                 ('publicViewable', None),
                 ('operatingSystem', u'Linux'),
                 ('gn', u'Shekhar'),
@@ -104,4 +104,4 @@ superusergrp.data = [('cn', 'superusers'),
                   ('dateCreated', datetime.datetime(2009, 1, 1, 18, 17, 20))]
 
 superusergrp.moddata = [('member',['uid=hubspaceadmin,ou=users,o=the-hub.net'])]
-
+superusergrp.newmember = [('member', ['uid=%s,ou=users,o=the-hub.net' % hub1.user1.uid ])]
