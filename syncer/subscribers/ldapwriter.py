@@ -40,6 +40,7 @@ all_attrs = [schema.get_obj(ldap.schema.AttributeType, oid) for oid in schema.li
 multivalue_attrs = tuple (itertools.chain(*[x.names for x in all_attrs if not x.single_value]))
 
 hub_ocs = [oc for oc in all_ocs if isHubOC(oc)]
+hub_ocs = all_ocs
 hubocnames_and_attrs = dict([(oc.names[0], tuple(getAttrs(oc, []))) for oc in hub_ocs])
 #aux_attrs_and_ocnames = dict([(hubocnames_and_attrs[oc.names[0]], oc.names[0]) for oc in hub_ocs if oc.kind == 2])
 oc_entries = dict([(oc.names[0], (oc.names + oc.sup)) for oc in hub_ocs])
@@ -178,9 +179,14 @@ class LDAPWriter(bases.SubscriberBase):
     def onUserAdd(self, username, udata):
         # Don't modify `udata` as we may call this method again on failure
         # Add hubGlobalUser record
-        user_ocnames = ('hubGlobalUser', 'hubSIP')
+        user_ocnames = ['hubGlobalUser', 'hubSIP']
+        udata_keys = [x[0] for x in udata]
+        if 'homeDirectory' in udata_keys:
+            user_ocnames.append('posixAccount')
+        if 'sambaSID' in udata_keys:
+            user_ocnames.append('sambaSamAccount')
         user_all_attrs = addAttrs(*user_ocnames)
-        add_record = [('objectClass', tuple(itertools.chain(*[oc_entries[name] for name in user_ocnames])))] + \
+        add_record = [('objectClass', tuple(set(itertools.chain(*[oc_entries[name] for name in user_ocnames]))))] + \
                      [(k,v) for (k,v) in udata if k in user_all_attrs]
         self.conn.add_s(globaluserdn % username, add_record)
         # Add hubLocalUser record
@@ -202,7 +208,7 @@ class LDAPWriter(bases.SubscriberBase):
     @ldapfriendly
     def onUserMod(self, username, udata):
         logger.debug("Modifying %s: %s" % (username, [k[0] for k in udata]))
-        user_ocnames = ('hubGlobalUser', 'hubSIP')
+        user_ocnames = ('hubGlobalUser', 'hubSIP', 'posixAccount', 'sambaSamAccount')
         globaluser_all_attrs = addAttrs(*user_ocnames)
         user_ocnames = ('hubLocalUser',)
         localuser_all_attrs = addAttrs(*user_ocnames)

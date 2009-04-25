@@ -75,7 +75,7 @@ class SimpleMapping(AttributeMapping):
 class posixUidNumberMapping(AttributeMapping):
     def _toLDAP(self, o, in_attrs, out_attrs):
         out_attrs['hubUserId'] = in_attrs[self.app_attrs[0]]
-        out_attrs['uidNumber'] = posix_uid_offset + in_attrs[self.app_attrs[0]]
+        out_attrs['uidNumber'] = out_attrs['sambaSID'] = posix_uid_offset + in_attrs[self.app_attrs[0]]
 
 class posixGidNumberMapping(AttributeMapping):
     def _toLDAP(self, o, in_attrs, out_attrs):
@@ -255,6 +255,7 @@ object_maps = dict (
         SimpleMapping('quotaStorage', 'gb_storage'),
         SimpleMapping('operatingSystem', 'os'),
         SimpleMapping('storageLocation','storage_loc'),
+        SimpleMapping('homeDirectory','storage_loc'),
         SimpleMapping('description'),
         SimpleMapping('billingId', 'billto_id'),
         SimpleMapping('billingProfile', 'bill_to_profile'),

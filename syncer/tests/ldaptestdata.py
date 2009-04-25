@@ -32,6 +32,7 @@ hub1.data = [('telephoneNumber', u'0123 456 0000'),
 
 hub1.user1.uid = "shon"
 hub1.user1.p = "secret"
+hub1.user1.hubUserId = 2
 hub1.user1.data = [('billingTelephoneNumber', None),
                 ('cn', u'Shekhar Tiwatne'),
                 ('uid', u'shon'),
@@ -66,7 +67,7 @@ hub1.user1.data = [('billingTelephoneNumber', None),
                 ('skypeId', u'shon___'),
                 ('telephoneNumber', u'None'),
                 ('billingVATID', u''),
-                ('hubUserId', 1),
+                ('hubUserId', hub1.user1.hubUserId),
                 ('displayName', u'Shekhar Tiwatne'),
                 ('labeledURI', None),
                 ('mobile', '+91 99222 55300'),
@@ -75,6 +76,10 @@ hub1.user1.data = [('billingTelephoneNumber', None),
                 ('billingFacsimileNumber', None),
                 ('sn', u'Tiwatne'),
                 ('billingMail', None),
+                ('sambaSID', 10000 + hub1.user1.hubUserId),
+                ('uidNumber', 10000 + hub1.user1.hubUserId),
+                ('gidNumber', 10001),
+                ('homeDirectory', '///filesrv/home/shon'),
                 ('billingReminderKey', u'66cbf1d00bc76b9a34f82388f5c6b85f')]
 
 hub1.user1.moddata = [('title', 'Mr.')]
@@ -83,6 +88,7 @@ superuser = TestData()
 superuser.uid = "hubspaceadmin"
 superuser.p = "secret"
 superuser.data = [ ('uid', "hubspaceadmin"),
+                ('gidNumber', 10002),
                 ('sn', ['admin']),
                 ('active', ['0']),
                 ('userPassword', '{MD5}Xr4ilOzQ4PCOq3aQ0qbuaQ=='),
