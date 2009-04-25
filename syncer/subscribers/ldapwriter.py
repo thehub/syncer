@@ -52,7 +52,7 @@ def getLocalUserDNFromUid(conn, uid):
     attrs_d = conn.search_s(basedn, ldap.SCOPE_ONELEVEL, '(%s)' % rdn, ['*'])[0][1]
     return "uid=%s,ou=users,%s" % (uid, attrs_d['homeHub'])
 
-class LDAPErrorWithHint(Exception):
+class LDAPErrorWithHint(ldap.INSUFFICIENT_ACCESS):
     """
     add a hint to make debug easier
     try:
@@ -314,7 +314,11 @@ class LDAPWriter(bases.SubscriberBase):
         """
         dn = leveldn % locals()
         add_record = [ ('objectClass', 'hubLocalRole'),] + [(k,v) for (k,v) in data]
-        self.conn.add_s(dn, add_record)
+        try:
+            self.conn.add_s(dn, add_record)
+        except ldap.ALREADY_EXISTS:
+            "Even if a already Role exists it may not be an error"
+            pass
         return True
     onRoleAdd.block = True
     onRoleAdd.rollback = rollback
