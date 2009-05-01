@@ -93,6 +93,9 @@ class SignOnAsRoot(SignOn):
 class SignOnAsUser1(SignOn):
     pass
 
+class SignOnAsHost1(SignOn):
+    pass
+
 class SignOnAsSuperUser(SignOn):
     pass
 
@@ -105,11 +108,10 @@ class AddUser(SyncerTestCase):
         if not self.conn.clnt.isSuccessful(res):
             self.fail(syncer.errors.res2errstr(res))
 
-class AddUser1AsRoot(AddUser):
-    pass
-
-class AddUser1AsSuperuser(AddUser):
-    pass
+class AddUser1AsRoot(AddUser): pass
+class AddUser1AsSuperuser(AddUser): pass
+class AddUser1AsHost(AddUser): pass
+class AddHost1AsSuperuser(AddUser): pass
 
 class AddSuperuserGroup(SyncerTestCase):
     def __init__(self, conn, data):
@@ -168,10 +170,14 @@ def main():
     addHubspaceadminToSuperusers()
     conns.su_conn = signOnAsSuperUser()
     addHub1AsSuperuser = AddHubAsSuperUser(conns.su_conn, testdata.hub1)
-    addUser1AsSuperuser = AddUser1AsSuperuser(conns.su_conn, testdata.hub1.user1)
-    modGlobalGroup = ModGlobalGroup(conns.su_conn, testdata.superusergrp)
+    addHost1AsSuperuser  = AddHost1AsSuperuser(conns.su_conn, testdata.hub1.host1)
+    signOnAsHost1 = SignOnAsHost1(testdata.hub1.host1.uid, testdata.hub1.host1.p)
     addHub1AsSuperuser()
-    addUser1AsSuperuser()
+    addHost1AsSuperuser()
+    conns.host_conn = signOnAsHost1()
+    modGlobalGroup = ModGlobalGroup(conns.su_conn, testdata.superusergrp)
+    addUser1AsHost = AddUser1AsHost(conns.host_conn, testdata.hub1.user1)
+    addUser1AsHost()
     conns.user1_conn = signOnAsUser1()
     modUserAsSuperuser = ModUser(conns.su_conn, testdata.hub1.user1)
     modUserAsMember = ModUser(conns.user1_conn, testdata.hub1.user1)

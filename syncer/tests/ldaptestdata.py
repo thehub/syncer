@@ -30,9 +30,61 @@ hub1.data = [('telephoneNumber', u'0123 456 0000'),
                 ('hubImageMimetype', u'image/png'),
                 ('billingPaymentTerms', u'15 days')]
 
+hub1.host1 = TestData()
+hub1.host1.uid = "hostfn"
+hub1.host1.p = "secret"
+hub1.host1.hubUserId = 2
+hub1.host1.data = [('billingTelephoneNumber', None),
+                ('cn', u'HostFN HostLN'),
+                ('uid', hub1.host1.uid),
+                ('publicViewable', None),
+                ('operatingSystem', u'Linux'),
+                ('gn', u'Host'),
+                ('homeHub', 'hubId=1,ou=hubs,o=the-hub.net'),
+                ('quotaStorage', None),
+                ('billingOutstanding', decimal.Decimal("0.00")),
+                ('title', u'Mr'),
+                ('facsimileTelephoneNumber', None),
+                ('hubImageMimetype', u'image/png'),
+                ('organisation', u'The Hub'),
+                ('hubUserReference', u'uid=%s,ou=users,o=the-hub.net' % hub1.host1.uid),
+                ('hubIdentitySIPURI', None),
+                ('sambaLMPassword', u'7B5F83F76983185A7584248B8D2C9F9E'),
+                ('mail', u'shekhar.tiwatne@the-hub.net'),
+                ('postalAddress', u'London'),
+                ('userPassword', '{MD5}Xr4ilOzQ4PCOq3aQ0qbuaQ=='),
+                ('billingCompany', u''),
+                ('extensionTelephoneNumber', None),
+                ('homeTelephoneNumber', u'+91 20 12345'),
+                ('description', u'I m a host\n'),
+                ('storageLocation', None),
+                ('dateCreated', datetime.datetime(2009, 1, 1, 18, 17, 20)),
+                ('billingReminderCounter', 0),
+                ('billingAddress', u'Tower Bridge'),
+                ('active', 1),
+                ('hubWelcomeSent', 1),
+                ('sambaNTPassword', u'46EBAD5FF06F009D8E3A8B7995E38B9D'),
+                ('skypeId', u'myskype'),
+                ('telephoneNumber', u'None'),
+                ('billingVATID', u''),
+                ('hubUserId', hub1.host1.hubUserId),
+                ('displayName', u'HostFN HostLN'),
+                ('labeledURI', None),
+                ('mobile', '+91 99222 55300'),
+                ('billingProfile', 1),
+                ('mailAlso', [u'shon@thisdoesnotexists.net']),
+                ('billingFacsimileNumber', None),
+                ('sn', u'HostLN'),
+                ('billingMail', None),
+                ('sambaSID', 10000 + hub1.host1.hubUserId),
+                ('uidNumber', 10000 + hub1.host1.hubUserId),
+                ('gidNumber', 10001),
+                ('homeDirectory', '///filesrv/home/hostfn'),
+                ('billingReminderKey', u'66cbf1d00bc76b9a34f82388f5c6b85f')]
+
 hub1.user1.uid = "shon"
 hub1.user1.p = "secret"
-hub1.user1.hubUserId = 2
+hub1.user1.hubUserId = 3
 hub1.user1.data = [('billingTelephoneNumber', None),
                 ('cn', u'Shekhar Tiwatne'),
                 ('uid', hub1.user1.uid),
