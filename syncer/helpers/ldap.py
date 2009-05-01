@@ -8,7 +8,8 @@ import base64
 
 username2globaluserdn = lambda user_name: "uid=%s,ou=users,o=the-hub.net" % user_name
 globaluserdn2username = lambda dn: dn.split(',')[0].split('=')[1]
-policydn = "policyId=%(policyId)s,ou=policies,hubId=%(hubId)s,ou=hubs,o=the-hub.net"
+hubdn = "hubId=%(hubId)s,ou=hubs,o=the-hub.net"
+policydn = "policyId=%(policyId)s,ou=policies," + hubdn
 # Posix uid and gid numbers for normal users start with offset 10000 while
 # those of special/system users start with offset 9000
 posix_uid_offset = 10000
@@ -94,11 +95,10 @@ class HubId2dnMapping(AttributeMapping):
     def _toApp(self, o, in_attrs, out_attrs):
         out_attrs[self.app_attrs[0]] = globaluserdn2username(in_attrs[self.ldap_attrs[0]])
     def _toLDAP(self, o, in_attrs, out_attrs):
-        tmpl = 'hubId=%(hub_id)s,ou=hubs,o=the-hub.net'
         loc_attr = self.app_attrs[0]
-        hub_id = in_attrs.get(loc_attr, None) or getattr(o, loc_attr, None) and getattr(o, loc_attr).id
-        if hub_id:
-            out_attrs[self.ldap_attrs[0]] = tmpl % locals()
+        hubId = in_attrs.get(loc_attr, None) or getattr(o, loc_attr, None) and getattr(o, loc_attr).id
+        if hubId:
+            out_attrs[self.ldap_attrs[0]] = hubdn % locals()
 
 class OtherHubsMapping(AttributeMapping):
     def _toApp(self, o, in_attrs, out_attrs):
@@ -127,8 +127,9 @@ class NameMapping(AttributeMapping):
 
 class TariffMapping(AttributeMapping):
     def _toLDAP(self, o, in_attrs, out_attrs):
-        tariffdn = "tariffId=%(current_tariff)s,ou=tariffs,hubId=%(hub_id)s,ou=hubs,o=the-hub.net"
-        out_attrs['tariffReference'] = tariffdn % in_attrs
+        tariffdn = "tariffId=%(tariff_id)s,ou=tariffs," + hubdn
+        out_attrs[self.ldap_attrs[0]] = tariffdn % in_attrs
+        print out_attrs
 
 
 class RoleMapping(AttributeMapping):
@@ -158,7 +159,9 @@ class PasswordMapping(AttributeMapping):
 
 class UserGroupMapping(AttributeMapping):
     def _toLDAP(self, o, in_attrs, out_attrs):
-        out_attrs[self.ldap_attrs[0]] = username2globaluserdn(o.user.user_name)
+        out_attrs[self.ldap_attrs[0]] = [username2globaluserdn(o.user.user_name)]
+        if isinstance(self.ldap_attrs, (tuple, list)) and len(self.ldap_attrs) > 1:
+            out_attrs[self.ldap_attrs[1]] = [o.user.user_name]
     def _toApp(self, o, in_attrs, out_attrs):
         out_attrs[self.app_attrs[0]] = globaluserdn2username(self.ldap_attrs[0]) # TODO this should be user object
 
@@ -289,7 +292,7 @@ object_maps = dict (
         SimpleMapping('publicViewable', 'public_field'),
         SimpleMapping('postalCode', 'postcode'),
         SimpleMapping('businessCategory', 'biz_type'),
-        TariffMapping('tariffReference'),
+        TariffMapping('tariffReference', 'tariff_id'),
         ),
     hub = AttributeMapper (
         SimpleMapping('hubId', 'id'),
@@ -321,7 +324,7 @@ object_maps = dict (
         GroupDiplayName('displayName', 'id'),
         GroupCreatedDate('dateCreated', 'id'),
         posixGidNumberMapping(('hubGroupId', 'gidNumber'), 'id'),
-        UserGroupMapping('member', 'user')
+        UserGroupMapping(('member', 'memberUid'), 'user'),
         ),
 
     policy = AttributeMapper (
@@ -340,6 +343,9 @@ object_maps = dict (
         SimpleMapping('openTimeEnd'),
         SimpleMapping('openTimeDate'),
         PolicyMapping('policyReference', 'policy'),
+        ),
+    tariff = AttributeMapper (
+        SimpleMapping('tariffId', 'id'),
         )
     )
 

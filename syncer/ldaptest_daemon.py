@@ -66,6 +66,7 @@ syncer.onUserAdd.join = True
 
 syncer.onUserMod.addSubscriber(sessionkeeper)
 syncer.onUserMod.addSubscriber(ldapwriter)
+syncer.onUserMod.join = True
 
 syncer.onAssignRoles.addSubscriber(sessionkeeper)
 syncer.onAssignRoles.addSubscriber(ldapwriter)
@@ -95,6 +96,10 @@ syncer.onOpentimesMod.addSubscriber(sessionkeeper)
 syncer.onOpentimesMod.addSubscriber(ldapwriter)
 syncer.onOpentimesDel.addSubscriber(sessionkeeper)
 syncer.onOpentimesDel.addSubscriber(ldapwriter)
+
+# Tariff events
+syncer.onTariffAdd.addSubscriber(sessionkeeper)
+syncer.onTariffAdd.addSubscriber(ldapwriter)
 
 Pyro.core.initServer()
 #Pyro.config.PYRO_TRACELEVEL=3

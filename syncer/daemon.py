@@ -94,6 +94,10 @@ syncer.onOpentimesMod.addSubscriber(ldapwriter)
 syncer.onOpentimesDel.addSubscriber(sessionkeeper)
 syncer.onOpentimesDel.addSubscriber(ldapwriter)
 
+# Tariff events
+syncer.onTariffAdd.addSubscriber(sessionkeeper)
+syncer.onTariffAdd.addSubscriber(ldapwriter)
+
 Pyro.core.initServer()
 #Pyro.config.PYRO_TRACELEVEL=3
 

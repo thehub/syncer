@@ -10,6 +10,7 @@ basedn = "o=the-hub.net"
 globaluserdn = "uid=%s,ou=users," + basedn
 localuserdn  = "uid=%s,ou=users,hubId=%s,ou=hubs,o=the-hub.net"
 hubdn = "hubId=%(hubId)s,ou=hubs," + basedn
+tariffdn = "tariffId=%(tariffId)s,ou=tariffs," + hubdn
 leveldn = "level=%(level)s,ou=roles," + hubdn
 accesspolicydn = "policyId=%(policyId)s,ou=policies," + hubdn
 opentimedn = "openTimeId=%(openTimeId)s," + accesspolicydn
@@ -49,8 +50,11 @@ conn.unbind_s()
 del all_ocs, conn, isHubOC, schema, all_attrs
 
 def getLocalUserDNFromUid(conn, uid):
-    attrs_d = conn.search_s(basedn, ldap.SCOPE_ONELEVEL, '(%s)' % rdn, ['*'])[0][1]
-    return "uid=%s,ou=users,%s" % (uid, attrs_d['homeHub'])
+    gdn = globaluserdn % uid
+    f, searchbase = gdn.split(',', 1)
+    f = "(%s)" % f
+    attrs_d = conn.search_s(searchbase, ldap.SCOPE_ONELEVEL, f, ['*'])[0][1]
+    return "uid=%s,ou=users,%s" % (uid, attrs_d['homeHub'][0])
 
 class LDAPErrorWithHint(ldap.INSUFFICIENT_ACCESS):
     """
@@ -113,8 +117,11 @@ class Proxy(object):
         
         # 1. Backup old entry if reqd
         if MOD_DELETE in [op[0] for op in mod_list]:
-            old_values = self.search_s(dn, ldap.SCOPE_BASE, '(%s)' % rdn, byattrs.keys())
-            old_values = old_values[0][1]
+            try:
+                old_values = self.search_s(dn, ldap.SCOPE_BASE, '(%s)' % rdn, byattrs.keys())
+                old_values = old_values[0][1]
+            except ldap.NO_SUCH_OBJECT:
+                raise ldap.NO_SUCH_ATTRIBUTE(str(byattrs.keys))
         # 2. Now actual LDAP operation. If we fail here we don't need rollback data
         result = self._conn.modify_s(*args, **kw)
         # 3. Generate ready to use mod_list based on flags and old/new values
@@ -342,14 +349,18 @@ class LDAPWriter(bases.SubscriberBase):
         dn = globalgrpdn % locals()
         ocnames = ('hubGlobalGroup',)
         all_attrs = addAttrs(*ocnames)
-        add_record = [('objectClass', tuple(itertools.chain(*[oc_entries[name] for name in ocnames])))] + \
-                     [(k,v) for (k,v) in data if k in all_attrs]
+        #add_record = [('objectClass', tuple(itertools.chain(*[oc_entries[name] for name in ocnames])))] + \
+        #             [(k,v) for (k,v) in data if k in all_attrs]
         for (k,v) in data:
-            mod_list = [(ldap.MOD_DELETE, k, None), (ldap.MOD_ADD, k, v)]
-            try:
-                self.conn.modify_s(dn, mod_list)
-            except ldap.NO_SUCH_ATTRIBUTE, err:
+            if isinstance(v,(tuple, list)):
+                mod_list = [(ldap.MOD_ADD, k, v)]
                 self.conn.modify_s(dn, mod_list[-1:])
+            else:
+                mod_list = [(ldap.MOD_DELETE, k, None), (ldap.MOD_ADD, k, v)]
+                try:
+                    self.conn.modify_s(dn, mod_list)
+                except ldap.NO_SUCH_ATTRIBUTE, err:
+                    self.conn.modify_s(dn, mod_list[-1:])
         return True
     onGroupMod.block = True
     onGroupMod.rollback = rollback
@@ -399,3 +410,12 @@ class LDAPWriter(bases.SubscriberBase):
         conn.modify_s(dn, mod_list)
     onOpentimesMod.block = True
     onOpentimesMod.rollback = rollback
+
+    @ldapfriendly
+    def onTariffAdd(self, hubId, mod_list):
+        tariffId = dict(mod_list)['tariffId']
+        dn = tariffdn % locals()
+        add_record = [('objectClass', 'hubLocalTariff')] + mod_list
+        self.conn.add_s(dn, add_record)
+    onTariffAdd.block = True
+    onTariffAdd.rollback = rollback
