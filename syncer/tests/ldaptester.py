@@ -63,6 +63,11 @@ class AddHub(SyncerTestCase):
         tr_id, res = self.conn.clnt.onHubAdd(self.data.id, self.data.data)
         if not self.conn.clnt.isSuccessful(res):
             self.fail(syncer.errors.res2errstr(res, ", "))
+        for (i, role) in enumerate(self.data.roles):
+            data = [('cn', '%s Role' % role.capitalize()), ('level', role), ('roleId', i+1)]
+            tr_id, res = self.conn.clnt.onRoleAdd(self.data.id, role, data)
+            if not self.conn.clnt.isSuccessful(res):
+                self.fail(syncer.errors.res2errstr(res))
 
 class AddHubAsSuperUser(AddHub):
     e_ret = True
@@ -112,6 +117,16 @@ class AddUser1AsRoot(AddUser): pass
 class AddUser1AsSuperuser(AddUser): pass
 class AddUser1AsHost(AddUser): pass
 class AddHost1AsSuperuser(AddUser): pass
+
+class AssignRole(SyncerTestCase):
+    def __init__(self, conn, data):
+        self.conn = conn
+        self.data = data
+    def _run(self):
+        data = self.data
+        tr_id, res = self.conn.clnt.onAssignRoles(data.uid, data.location.id, data.role)
+        if not self.conn.clnt.isSuccessful(res):
+            self.fail(syncer.errors.res2errstr(res, ", "))
 
 class AddSuperuserGroup(SyncerTestCase):
     def __init__(self, conn, data):
@@ -171,9 +186,11 @@ def main():
     conns.su_conn = signOnAsSuperUser()
     addHub1AsSuperuser = AddHubAsSuperUser(conns.su_conn, testdata.hub1)
     addHost1AsSuperuser  = AddHost1AsSuperuser(conns.su_conn, testdata.hub1.host1)
+    assignHostRole = AssignRole(conns.su_conn, testdata.hub1.host1)
     signOnAsHost1 = SignOnAsHost1(testdata.hub1.host1.uid, testdata.hub1.host1.p)
     addHub1AsSuperuser()
     addHost1AsSuperuser()
+    assignHostRole()
     conns.host_conn = signOnAsHost1()
     modGlobalGroup = ModGlobalGroup(conns.su_conn, testdata.superusergrp)
     addUser1AsHost = AddUser1AsHost(conns.host_conn, testdata.hub1.user1)

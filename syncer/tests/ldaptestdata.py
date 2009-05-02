@@ -10,8 +10,7 @@ root_p = "cL5XgIxJK0"
 host_u = "x"
 host_p = "x"
 hub1 = TestData()
-hub1.user1 = TestData()
-
+hub1.roles = ('superuser', 'director', 'member','host')
 hub1.id = 1
 hub1.data = [('telephoneNumber', u'0123 456 0000'),
                 ('billingVATID', u'456 1111 11'),
@@ -34,13 +33,16 @@ hub1.host1 = TestData()
 hub1.host1.uid = "hostfn"
 hub1.host1.p = "secret"
 hub1.host1.hubUserId = 2
+hub1.host1.role = "host"
+hub1.host1.location = hub1
 hub1.host1.data = [('billingTelephoneNumber', None),
                 ('cn', u'HostFN HostLN'),
                 ('uid', hub1.host1.uid),
                 ('publicViewable', None),
                 ('operatingSystem', u'Linux'),
                 ('gn', u'Host'),
-                ('homeHub', 'hubId=1,ou=hubs,o=the-hub.net'),
+                ('homeHub', 'hubId=%s,ou=hubs,o=the-hub.net' % hub1.id),
+                ('hubMemberOf', hub1.id),
                 ('quotaStorage', None),
                 ('billingOutstanding', decimal.Decimal("0.00")),
                 ('title', u'Mr'),
@@ -56,7 +58,7 @@ hub1.host1.data = [('billingTelephoneNumber', None),
                 ('billingCompany', u''),
                 ('extensionTelephoneNumber', None),
                 ('homeTelephoneNumber', u'+91 20 12345'),
-                ('description', u'I m a host\n'),
+                ('description', u'I m a host'),
                 ('storageLocation', None),
                 ('dateCreated', datetime.datetime(2009, 1, 1, 18, 17, 20)),
                 ('billingReminderCounter', 0),
@@ -82,6 +84,7 @@ hub1.host1.data = [('billingTelephoneNumber', None),
                 ('homeDirectory', '///filesrv/home/hostfn'),
                 ('billingReminderKey', u'66cbf1d00bc76b9a34f82388f5c6b85f')]
 
+hub1.user1 = TestData()
 hub1.user1.uid = "shon"
 hub1.user1.p = "secret"
 hub1.user1.hubUserId = 3
@@ -91,7 +94,8 @@ hub1.user1.data = [('billingTelephoneNumber', None),
                 ('publicViewable', None),
                 ('operatingSystem', u'Linux'),
                 ('gn', u'Shekhar'),
-                ('homeHub', 'hubId=1,ou=hubs,o=the-hub.net'),
+                ('homeHub', 'hubId=%s,ou=hubs,o=the-hub.net' % hub1.id),
+                ('hubMemberOf', hub1.id),
                 ('quotaStorage', None),
                 ('billingOutstanding', decimal.Decimal("0.00")),
                 ('title', u'Mr'),
@@ -107,8 +111,7 @@ hub1.user1.data = [('billingTelephoneNumber', None),
                 ('billingCompany', u''),
                 ('extensionTelephoneNumber', None),
                 ('homeTelephoneNumber', u'+91 20 12345'),
-                ('description',
-                 u'Just a programmer\n'),
+                ('description', u'Just a programmer\n'),
                 ('storageLocation', None),
                 ('dateCreated', datetime.datetime(2009, 1, 1, 18, 17, 20)),
                 ('billingReminderCounter', 0),
