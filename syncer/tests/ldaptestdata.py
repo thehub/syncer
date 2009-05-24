@@ -6,7 +6,7 @@ class TestData():
     """
 
 root_u = "ldapadmin"
-root_p = ""
+root_p = "secret"
 
 hub1 = TestData()
 hub1.roles = ('superuser', 'director', 'member','host')

@@ -129,7 +129,6 @@ class TariffMapping(AttributeMapping):
     def _toLDAP(self, o, in_attrs, out_attrs):
         tariffdn = "tariffId=%(tariff_id)s,ou=tariffs," + hubdn
         out_attrs[self.ldap_attrs[0]] = tariffdn % in_attrs
-        print out_attrs
 
 
 class RoleMapping(AttributeMapping):

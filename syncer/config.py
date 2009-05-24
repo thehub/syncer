@@ -16,7 +16,7 @@ __syncerdebug__ = True
 # change in configuration
 # Suggested use is change the config and then initialize syncer client/daemon.
 use_ssl = False
-host = "ldap.the-hub.net"
+host = "localhost"
 port = 9003
 basedir = os.path.dirname(os.path.abspath(__file__))
 ssl_dir = "%s/certs" % basedir
@@ -26,7 +26,7 @@ datadir = os.path.join(syncerroot, "data")
 logdir = os.path.join(syncerroot, "logs")
 user_agent = "syncer"
 subscriber_adminemail = ""
-ldap_uri = "ldap://ldap.the-hub.net"
+ldap_uri = "ldap://localhost"
 session_idletimeout = datetime.timedelta(0, 60 * 24 * 60 * 60) # 60 days of inactivity should expire the session
 client_disabled = False
 pyro_protocol = "PYRO"

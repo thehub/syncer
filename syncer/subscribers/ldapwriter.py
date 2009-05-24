@@ -199,8 +199,8 @@ class LDAPWriter(bases.SubscriberBase):
                      [(k,v) for (k,v) in udata if k in user_all_attrs]
         self.conn.add_s(servicedn % username, add_record)
         return True
-    onUserAdd.block = True
-    onUserAdd.rollback = rollback
+    onServiceAdd.block = True
+    onServiceAdd.rollback = rollback
 
     @ldapfriendly
     def onUserAdd(self, username, udata):
