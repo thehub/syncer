@@ -6,9 +6,8 @@ class TestData():
     """
 
 root_u = "ldapadmin"
-root_p = "cL5XgIxJK0"
-host_u = "x"
-host_p = "x"
+root_p = ""
+
 hub1 = TestData()
 hub1.roles = ('superuser', 'director', 'member','host')
 hub1.id = 1
@@ -140,9 +139,9 @@ hub1.user1.data = [('billingTelephoneNumber', None),
 hub1.user1.moddata = [('title', 'Mr.')]
 
 superuser = TestData()
-superuser.uid = "hubspaceadmin"
+superuser.uid = "hubspace"
 superuser.p = "secret"
-superuser.data = [ ('uid', "hubspaceadmin"),
+superuser.data = [ ('uid', "hubspace"),
                 ('gidNumber', 10002),
                 ('sn', ['admin']),
                 ('active', ['0']),
@@ -158,5 +157,5 @@ superusergrp.data = [('cn', 'superusers'),
                   ('gidNumber', 9001),
                   ('dateCreated', datetime.datetime(2009, 1, 1, 18, 17, 20))]
 
-superusergrp.moddata = [('member',['uid=hubspaceadmin,ou=users,o=the-hub.net'])]
-superusergrp.newmember = [('member', ['uid=%s,ou=users,o=the-hub.net' % hub1.user1.uid ])]
+superusergrp.moddata = [('member',['uid=hubspace,ou=services,o=the-hub.net'])]
+superusergrp.newmember = [('member', ['uid=%s,ou=,o=the-hub.net' % hub1.user1.uid ])]

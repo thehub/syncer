@@ -149,6 +149,13 @@ class AddHubspaceadminToSuperusers(SyncerTestCase):
 class AddSuperuser(AddUser):
     pass
 
+class AddService(AddUser):
+    def _run(self):
+        tr_id, res = self.conn.clnt.onServiceAdd(self.data.uid, self.data.data)
+        if not self.conn.clnt.isSuccessful(res):
+            self.fail(syncer.errors.res2errstr(res))
+
+
 class SyncerConns(object):
     """I do nothing"""
 
@@ -178,10 +185,10 @@ def main():
     signOnAsUser1 = SignOnAsUser1(testdata.hub1.user1.uid, testdata.hub1.user1.p)
     conns.root_conn = signOnAsRoot()
     addSuperuserGroup = AddSuperuserGroup(conns.root_conn, testdata.superusergrp)
-    addSuperuser = AddSuperuser(conns.root_conn, testdata.superuser)
+    addService = AddService(conns.root_conn, testdata.superuser)
     addHubspaceadminToSuperusers = AddHubspaceadminToSuperusers(conns.root_conn, testdata.superusergrp)
     addSuperuserGroup()
-    addSuperuser()
+    addService()
     addHubspaceadminToSuperusers()
     conns.su_conn = signOnAsSuperUser()
     addHub1AsSuperuser = AddHubAsSuperUser(conns.su_conn, testdata.hub1)

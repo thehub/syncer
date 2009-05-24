@@ -8,6 +8,7 @@ from helpers.ldap import ldapfriendly, ldapSafe
 uri = "ldap://localhost"
 basedn = "o=the-hub.net"
 globaluserdn = "uid=%s,ou=users," + basedn
+servicedn = "uid=%s,ou=services," + basedn
 localuserdn  = "uid=%s,ou=users,hubId=%s,ou=hubs,o=the-hub.net"
 hubdn = "hubId=%(hubId)s,ou=hubs," + basedn
 tariffdn = "tariffId=%(tariffId)s,ou=tariffs," + hubdn
@@ -175,12 +176,31 @@ class LDAPWriter(bases.SubscriberBase):
         u, p = ldapSafe((u, p))
         if u == "ldapadmin":
             dn = "uid=%s,o=the-hub.net" % u
+        elif u == "hubspace": # TODO: ugly 
+            dn = "uid=%s,ou=services,o=the-hub.net" % u
         else:
             dn = globaluserdn % u
         conn = Proxy(dn, p)
         currentSession()['ldapconn'] = conn
         return True
     onSignon.block = True
+
+    @ldapfriendly
+    def onServiceAdd(self, username, udata):
+        # Don't modify `udata` as we may call this method again on failure
+        user_ocnames = ['hubGlobalUser', 'hubSIP']
+        udata_keys = [x[0] for x in udata]
+        if 'homeDirectory' in udata_keys:
+            user_ocnames.append('posixAccount')
+        if 'sambaSID' in udata_keys:
+            user_ocnames.append('sambaSamAccount')
+        user_all_attrs = addAttrs(*user_ocnames)
+        add_record = [('objectClass', tuple(set(itertools.chain(*[oc_entries[name] for name in user_ocnames]))))] + \
+                     [(k,v) for (k,v) in udata if k in user_all_attrs]
+        self.conn.add_s(servicedn % username, add_record)
+        return True
+    onUserAdd.block = True
+    onUserAdd.rollback = rollback
 
     @ldapfriendly
     def onUserAdd(self, username, udata):
