@@ -188,12 +188,8 @@ class LDAPWriter(bases.SubscriberBase):
     @ldapfriendly
     def onServiceAdd(self, username, udata):
         # Don't modify `udata` as we may call this method again on failure
-        user_ocnames = ['hubGlobalUser', 'hubSIP']
+        user_ocnames = ['hubGlobalUser']
         udata_keys = [x[0] for x in udata]
-        if 'homeDirectory' in udata_keys:
-            user_ocnames.append('posixAccount')
-        if 'sambaSID' in udata_keys:
-            user_ocnames.append('sambaSamAccount')
         user_all_attrs = addAttrs(*user_ocnames)
         add_record = [('objectClass', tuple(set(itertools.chain(*[oc_entries[name] for name in user_ocnames]))))] + \
                      [(k,v) for (k,v) in udata if k in user_all_attrs]
@@ -206,15 +202,16 @@ class LDAPWriter(bases.SubscriberBase):
     def onUserAdd(self, username, udata):
         # Don't modify `udata` as we may call this method again on failure
         # Add hubGlobalUser record
-        user_ocnames = ['hubGlobalUser', 'hubSIP']
+        user_ocnames = ['hubGlobalUser', 'hubSIP', 'posixAccount']
         udata_keys = [x[0] for x in udata]
-        if 'homeDirectory' in udata_keys:
-            user_ocnames.append('posixAccount')
+        posix_must_data = [('gidNumber', '9000')]
+        if 'homeDirectory' not in udata_keys:
+            posix_must_data.append(('homeDirectory', '/')
         if 'sambaSID' in udata_keys:
             user_ocnames.append('sambaSamAccount')
         user_all_attrs = addAttrs(*user_ocnames)
         add_record = [('objectClass', tuple(set(itertools.chain(*[oc_entries[name] for name in user_ocnames]))))] + \
-                     [(k,v) for (k,v) in udata if k in user_all_attrs]
+                     [(k,v) for (k,v) in udata if k in user_all_attrs] + posix_must_data
         self.conn.add_s(globaluserdn % username, add_record)
         # Add hubLocalUser record
         user_ocnames = ('hubLocalUser',)
