@@ -206,7 +206,7 @@ class LDAPWriter(bases.SubscriberBase):
         udata_keys = [x[0] for x in udata]
         posix_must_data = [('gidNumber', '9000')]
         if 'homeDirectory' not in udata_keys:
-            posix_must_data.append(('homeDirectory', '/')
+            posix_must_data.append(('homeDirectory', '/'))
         if 'sambaSID' in udata_keys:
             user_ocnames.append('sambaSamAccount')
         user_all_attrs = addAttrs(*user_ocnames)
