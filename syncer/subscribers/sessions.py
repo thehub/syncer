@@ -89,4 +89,8 @@ class SessionKeeper(dict, bases.SubscriberBase):
         return "<sessions: %s>" % super(self.__class__, self).__repr__()
 
 def currentSession():
-    return sessions.get(syncer_tls.sid, None)
+    ses = sessions.get(syncer_tls.sid, None)
+    if ses == None:
+        logger.warn("no session found as sid is None")
+        ses = {}
+    return ses
