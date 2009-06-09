@@ -153,6 +153,7 @@ class Proxy(object):
 # LDAP Events
 def rollback(rbdata):
     conn = currentSession()['ldapconn']
+    dn = rbdata.data[1]
     action = rbdata.data[0]
     action_args = rbdata.data[1:]
     f = getattr(conn._conn, action)
@@ -299,9 +300,9 @@ class LDAPWriter(bases.SubscriberBase):
     @ldapfriendly
     def onHubAdd(self, hubId, hubdata):
         dn = hubdn % locals()
-        ocnames = ('hub',)
+        ocnames = ('hub', 'hubBilling', 'hubBankAccount')
         all_attrs = addAttrs(*ocnames)
-        add_record = [('objectClass', tuple(itertools.chain(*[oc_entries[name] for name in ocnames])))] + \
+        add_record = [('objectClass', tuple(set(itertools.chain(*[oc_entries[name] for name in ocnames]))))] + \
                      [(k,v) for (k,v) in hubdata if k in all_attrs]
         self.conn.add_s(dn, add_record)
         hub_ous = ['users', 'groups', 'tariffs', 'roles', 'policies']

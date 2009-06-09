@@ -13,7 +13,7 @@ class HubSpace(bases.WebApp):
     def onSignonSaveArgs(self, u, p, cookies):
         return (u, utils.masked, utils.masked)
 
-    def onSignon(self, u, p, cookies=[]):
+    def onUserLogin(self, u, p, cookies=[]):
         login_url = "http://%s/login" % self.domainname
         cj = cookielib.CookieJar()
         for c in cookies:
@@ -25,8 +25,8 @@ class HubSpace(bases.WebApp):
         currentSession()['authcookies'][self.name] = authcookies
         return True
 
-    onSignon.block = False
-    onSignon.saveargs = onSignonSaveArgs
+    onUserLogin.block = False
+    onUserLogin.saveargs = onSignonSaveArgs
 
     def onUserAdd(self, username, udata):
         useradd_url = "http://%s/load_tab?section=addMember&object_id=1&object_type=User" % (self.domainname, username)
