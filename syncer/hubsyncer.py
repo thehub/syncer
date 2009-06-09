@@ -15,7 +15,6 @@ import transactions
 import subscribers
 
 config.host = "ldap.the-hub.net"
-config.host = "localhost"
 config.ldap_uri = "ldap://localhost"
 config.eventhandler_attempts = 1
 config.reload()
