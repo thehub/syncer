@@ -1,6 +1,7 @@
 from __future__ import with_statement
 import cPickle, datetime, threading, time, urllib, urllib2, cookielib, traceback
 from Queue import Queue
+import copy
 
 import twill
 import Pyro.core
@@ -149,9 +150,6 @@ class Event(object):
                         print "before attempt #%d sleeping for 2 secs" % (attempt + 1)
                         time.sleep(getattr(f, 'attempt_interval', 2))
         finally:
-            transactions.commit()
-            transactions.Session.remove()
-            transactions.Session.clear()
             th_q.get()
             th_q.task_done()
 
@@ -182,8 +180,11 @@ class Event(object):
             sid = sessions.genVisitId(self.name, args, kw)
         
         with threading.Lock():
+            session = transactions.session()
             transaction = transactions.newTransaction(self, *self.argsfilterer(args, kw))
-            transactions.commit()
+            if self.transactional:
+                session.add(transaction)
+            session.commit()
             tr_id = transaction.id
             logger.debug("Transaction (%s): Begin" % transaction.id)
 
@@ -194,28 +195,38 @@ class Event(object):
                 __failed = True
                 break
 
+        results = copy.copy(transaction.results)
+
         if __failed:
             self.onFailure(transaction, th_q, args, kw)
         else:
             for subscriber in self.subscribers:
                 if not app_name == subscriber.name:
                     self.runInThread(sid, transaction, subscriber, args, kw, th_q)
+            
+            def thCleanup(transaction, th_q):
+                th_q.join()
+                transaction.state = 2
+                #transactions.commit()
+                session.commit()
+                session.close()
+                #transactions.session.close()
+                logger.debug("dropping session")
 
             if self.join:
                 print "I'm asked to wait"
-                th_q.join()
+                threading.Thread(target=thCleanup, args=(transaction, th_q)).run()
                 print "My wait is over"
-                transaction.state = 2
-                transactions.commit()
-                transactions.Session.remove()
-                transactions.Session.clear()
+            else:
+                threading.Thread(target=thCleanup, args=(transaction, th_q)).start()
+
 
         #print '========================================'
         #for (sid, session) in sessions.items():
         #    print sid, session['username'], session['ldapconn']
         #print transaction.results
         #print '========================================'
-        return tr_id, transaction.results
+        return tr_id, results
 
     def onFailure(self, transaction, th_q, args, kw):
         th_q.join()
@@ -251,8 +262,9 @@ class Event(object):
 
         try:
             transaction.delete()
-            transactions.commit()
+            #transactions.commit()
+            #transactions.session.remove()
+            session.commit()
+            session.close()
         except Exception, err:
             logger.warn("TODO %s" % err)
-        transactions.Session.remove()
-        transactions.Session.clear()

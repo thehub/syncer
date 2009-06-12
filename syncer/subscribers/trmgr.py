@@ -31,8 +31,6 @@ class TransactionMgr(bases.SubscriberBase):
                 res[0].delete()
             else:
                 logger.error("No such transaction: %s" % t_id)
-                #import time
-                #time.sleep(5)
                 return errors.syncer_transaction_failed
     completeTransactions.block = True
 

@@ -1,6 +1,4 @@
 import datetime
-from sqlalchemy.orm import scoped_session, sessionmaker
-import elixir
 from elixir import *
 
 import errors
@@ -8,14 +6,13 @@ import errors
 now = datetime.datetime.now
 
 metadata.bind = "sqlite:///trdb.sqlite"
+#metadata.bind = "postgres://shon:e@localhost/trdb"
 #metadata.bind.echo = True
-Session = scoped_session(sessionmaker(autoflush=True,  transactional=False))
-elixir.session = Session
 
 def commit():
     try:
-        Session.flush()
-        Session.commit()
+        session.flush()
+        session.commit()
     except:
         pass
 
