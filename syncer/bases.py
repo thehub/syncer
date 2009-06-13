@@ -262,9 +262,7 @@ class Event(object):
 
         try:
             transaction.delete()
-            #transactions.commit()
-            #transactions.session.remove()
-            session.commit()
-            session.close()
+            transactions.commit()
+            transactions.session.close()
         except Exception, err:
             logger.warn("TODO %s" % err)
