@@ -2,10 +2,11 @@ import datetime
 from elixir import *
 
 import errors
+import config
 
 now = datetime.datetime.now
 
-metadata.bind = "sqlite:///trdb.sqlite"
+metadata.bind = config.dburl
 #metadata.bind = "postgres://shon:e@localhost/trdb"
 #metadata.bind.echo = True
 

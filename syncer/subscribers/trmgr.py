@@ -60,4 +60,4 @@ class TransactionMgr(bases.SubscriberBase):
                 rbdata.delete()
             tr.delete()
             transactions.commit()
-    rollbackTransactions.block = False
+    rollbackTransactions.block = True

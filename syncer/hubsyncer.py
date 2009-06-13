@@ -11,13 +11,9 @@ utils.pushToBuiltins("all_subscribers", dict ())
 utils.pushToBuiltins("syncer_tls", threading.local())
 
 from bases import *
+
 import transactions
 import subscribers
-
-config.host = "ldap.the-hub.net"
-config.ldap_uri = "ldap://localhost"
-config.eventhandler_attempts = 1
-config.reload()
 
 utils.pushToBuiltins("currentTransaction", transactions.currentTransaction)
 utils.pushToBuiltins("currentSession", subscribers.sessions.currentSession)

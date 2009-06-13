@@ -31,6 +31,8 @@ session_idletimeout = datetime.timedelta(0, 60 * 24 * 60 * 60) # 60 days of inac
 client_disabled = False
 pyro_protocol = "PYRO"
 
+dburl = "postgres://shon:x@localhost/trdb"
+
 # event/ sybscriber defaults. 
 # To be overriden in syncer code
 event_join = False
@@ -38,6 +40,8 @@ eventhandler_block = False
 eventhandler_attempts = 2 # TODo rename to retries
 eventhandler_attempt_interval = 2 # seconds
 subscriber_adminemail = None 
+
+from localconfig import *
 
 def reload():
     import Pyro
