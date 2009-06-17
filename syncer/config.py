@@ -41,7 +41,10 @@ eventhandler_attempts = 2 # TODo rename to retries
 eventhandler_attempt_interval = 2 # seconds
 subscriber_adminemail = None 
 
-from localconfig import *
+try:
+    from localconfig import *
+except ImportError, err:
+    pass
 
 def reload():
     import Pyro
