@@ -46,7 +46,7 @@ def setupDirs():
 # Inspiration => http://docs.turbogears.org/1.0/ConvertCookies
 
 attrs = 'expires', 'path', 'comment', 'domain', 'secure', 'version'
-attr_defaults = dict (expires = None, path = None, comment = None, domain = "", secure = None, version = None)
+attr_defaults = dict (expires = None, path = "/", comment = None, domain = "", secure = None, version = None)
 
 def create_cookies(simple_cookie):
     cookies = []
@@ -94,7 +94,17 @@ def create_simple_cookie(cookiejar):
     return sc
 
 def convertCookie(what):
-    if isinstance(what, cookielib.CookieJar):
+    """
+    - list of cookielib.Cookie instances => simple cookie
+    - CookieJar -> simple cookie
+    - simple cookie -> CookieJar
+    """
+    if isinstance(what, list):
+        cj = cookielib.CookieJar()
+        for c in what:
+            cj.set_cookie(c)
+        return create_simple_cookie(cj)
+    elif isinstance(what, cookielib.CookieJar):
         return create_simple_cookie(what)
     else:
         return create_cookies(what)

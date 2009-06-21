@@ -3,8 +3,8 @@ import cPickle, datetime, threading, time, urllib, urllib2, cookielib, traceback
 from Queue import Queue
 import copy
 
-import twill
 import Pyro.core
+import mechanize
 
 import errors, config, utils, transactions
 
@@ -19,26 +19,12 @@ class SubscriberBase(object):
         all_subscribers[name] = self
 
 class WebApp(SubscriberBase):
-    def __init__(self, domainname, *args, **kw):
-        SubscriberBase.__init__(self, *args, **kw)
+    loginurl_tmpl = "http://%s/login"
+
+    def __init__(self, name, domainname, *args, **kw):
+        SubscriberBase.__init__(self, name, *args, **kw)
         self.domainname = domainname
-
-    def makeLoginDict(self, username, password):
-        raise NotImplemented
-
-    def onSignon(self, u, p):
-        raise NotImplemented
-
-    def onReceiveAuthcookies(self, appname, cookies):
-        if appname == self.name:
-            session = currentSession()
-            if 'authcookies' not in session:
-                session['authcookies'] = {appname: cookies}
-            else:
-                session['authcookies'][appname] = cookies
-            return True
-
-    onReceiveAuthcookies.block = True
+        self.login_url = self.loginurl_tmpl % self.domainname
 
     def makeHttpReq(self, url, formvars):
         session = currentSession()
@@ -52,34 +38,60 @@ class WebApp(SubscriberBase):
         r = opener.open(url, params)
         content = r.read()
         r.close()
-        logger.debug("authenticate req code: %s" % r.code)
+        logger.debug("returned http code: %s" % r.code)
         return cj, content
 
-    def readForm(self, url):
-        session = currentSession()
-        authcookies = session.get('authcookies', None)
-        cj = None
-        if authcookies:
-            cj = authcookies.get(self.name, None)
-        if not cj:
-            logger.warn("could not find authcookies for %s" % self.name)
-        b = twill.get_browser()
-        b.set_agent_string(config.user_agent)
-        for c in cj:
-            b.cj.set_cookie(c)
-        b.go(url)
-        f = b.get_all_forms()[0]
-        d = dict()
-        for c in f.controls:
-            if isinstance(c.value, list):
-                if c.value:
-                    value = c.value[0]
-                else:
-                    value = ""
+    def onSignonSaveArgs(self, u, p, cookies):
+        return (u, utils.masked, utils.masked)
+
+    def onUserLogin(self, u, p, cookies=[]):
+        """
+        u: username
+        p: password
+        cookies: list of cookielib.Cookie instances. These cookies would be passed during login attempt.
+        Returns list of auth cookies
+        """
+        b = mechanize.Browser()
+        b.addheaders = [ ("User-agent", config.user_agent), ]
+        cj = b._ua_handlers['_cookies'].cookiejar
+        for c in cookies:
+            cj.set_cookie(c)
+        logger.debug("URL open: %s" % self.login_url)
+        b.open(self.login_url)
+        login_dict = self.makeLoginDict(u, p)
+        forms = list(b.forms())
+        for form in forms:
+            if set(login_dict.keys()).issubset(set([c.name for c in form.controls])):
+                nr = forms.index(form)
+        b.select_form(nr=nr)
+        for (k,v) in self.makeLoginDict(u, p).items():
+            b[k] = v
+        b.submit()
+        return [c for c in cj]
+
+    onUserLogin.block = True
+    onUserLogin.saveargs = onSignonSaveArgs
+
+    def onSignon(self, u, p):
+        cookies = self.onUserLogin(u, p)
+        if 'authcookies' not in session:
+            session['authcookies'] = {self.name: cookies}
+        else:
+            session['authcookies'][self.name] = cookies
+
+    onSignon.block = True
+    onUserLogin.saveargs = onSignonSaveArgs
+
+    def onReceiveAuthcookies(self, appname, cookies):
+        if appname == self.name:
+            session = currentSession()
+            if 'authcookies' not in session:
+                session['authcookies'] = {appname: cookies}
             else:
-                value = c.value
-            d[c.name] = value
-        return d
+                session['authcookies'][appname] = cookies
+            return True
+
+    onReceiveAuthcookies.block = True
 
 class Syncer(Pyro.core.ObjBase):
 
@@ -224,7 +236,7 @@ class Event(object):
         #print '========================================'
         #for (sid, session) in sessions.items():
         #    print sid, session['username'], session['ldapconn']
-        #print transaction.results
+        #print results
         #print '========================================'
         return tr_id, results
 

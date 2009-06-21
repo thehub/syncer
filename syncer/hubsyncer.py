@@ -28,6 +28,12 @@ ldapwriter.ignore_old_failures = True
 transactionmgr = subscribers.trmgr.TransactionMgr("transactionmgr")
 transactionmgr.ignore_old_failures = True
 
+hubspace = subscribers.hubspace.HubSpace("hubspace", "space.shons.net:8080")
+hubspace.ignore_old_failures = True # TODO
+
+hubplus = subscribers.hubplus.HubPlus("hubplus", "pinax.shons.net:8000")
+hubplus.ignore_old_failures = True # TODO
+
 # Transactions
 syncer.completeTransactions.addSubscriber(transactionmgr)
 syncer.completeTransactions.transactional = False
@@ -46,6 +52,11 @@ syncer.onReceiveAuthcookies.join = True
 syncer.onSignoff.addSubscriber(sessionkeeper)
 syncer.onSignoff.transactional = False
 syncer.onSignoff.join = True
+
+syncer.onUserLogin.addSubscriber(hubspace)
+syncer.onUserLogin.addSubscriber(hubplus)
+syncer.onUserLogin.transactional = False
+syncer.onUserLogin.join = True
 
 # User/Group events
 syncer.onServiceAdd.addSubscriber(sessionkeeper)

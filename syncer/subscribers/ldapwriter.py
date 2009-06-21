@@ -177,7 +177,7 @@ class LDAPWriter(bases.SubscriberBase):
         u, p = ldapSafe((u, p))
         if u == "ldapadmin":
             dn = "uid=%s,o=the-hub.net" % u
-        elif u == "hubspace": # TODO: ugly 
+        elif u in ("hubspace", "hubplus"): # TODO: ugly 
             dn = "uid=%s,ou=services,o=the-hub.net" % u
         else:
             dn = globaluserdn % u
