@@ -248,29 +248,29 @@ class Event(object):
             transaction.state = 2
             eventname = self.name
             failed_apps = dict ()
-            username = transaction.owner
 
-            rollback_candidates = [s for s in self.subscribers_s + self.subscribers if not s.ignore_old_failures and s.name in results]
-            logger.debug("Begin rollback")
+            if self.transactional:
+                rollback_candidates = [s for s in self.subscribers_s + self.subscribers if not s.ignore_old_failures and s.name in results]
+                logger.debug("Begin rollback")
 
-            for subscriber in rollback_candidates:
+                for subscriber in rollback_candidates:
 
-                f = getattr(subscriber, eventname, getattr(subscriber, "onAnyEvent", None))
-                rollback = getattr(f, "rollback", None)
-                if rollback:
-                    logger.debug("ateempting rollback for %s" % subscriber.name)
-                    try:
-                        rollback(subscriber, *args, **kw)
-                    except Exception, err:
-                        logger.error("Rollback failed for %s:%s (%s)" % (subscriber.name, eventname, err))
+                    f = getattr(subscriber, eventname, getattr(subscriber, "onAnyEvent", None))
+                    rollback = getattr(f, "rollback", None)
+                    if rollback:
+                        logger.debug("ateempting rollback for %s" % subscriber.name)
+                        try:
+                            rollback(subscriber, *args, **kw)
+                        except Exception, err:
+                            logger.error("Rollback failed for %s:%s (%s)" % (subscriber.name, eventname, err))
 
-                if errors.isError(results[subscriber.name]):
-                    failed_apps[subscriber.name] = results[subscriber.name]
-                    if subscriber.adminemail:
-                        recipient = subscriber.adminemail
-                        appname = subscriber.name
-                        err = utils.sendAlert(locals())
-                        if err: logger.warn(err)
+                    if errors.isError(results[subscriber.name]):
+                        failed_apps[subscriber.name] = results[subscriber.name]
+                        if subscriber.adminemail:
+                            recipient = subscriber.adminemail
+                            appname = subscriber.name
+                            err = utils.sendAlert(locals())
+                            if err: logger.warn(err)
 
         try:
             transaction.delete()

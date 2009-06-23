@@ -22,7 +22,7 @@ max_tid = 1024 * 10
 class Transaction(Entity):
     time = Field(DateTime, default=now)
     state = Field(Integer, default=1) # 1: Running, 2: Complete, 3: Rolling back
-    owner = Field(Unicode)
+    owner = Field(Unicode) # unused should go
     is_complete = Field(Boolean, default=False)
     event_name = Field(Unicode)
     args = Field(PickleType)
