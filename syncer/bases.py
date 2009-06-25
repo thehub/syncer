@@ -177,7 +177,7 @@ class Event(object):
             th_q.put(subscriber.name)
             if block:
                 th.run()
-                logger.info("%s %s: done\n" % (subscriber.name, self.name))
+                logger.info("%s %s: done" % (subscriber.name, self.name))
             else:
                 th.start()
 
