@@ -9,7 +9,7 @@ uri = "ldap://localhost"
 basedn = "o=the-hub.net"
 globaluserdn = "uid=%s,ou=users," + basedn
 servicedn = "uid=%s,ou=services," + basedn
-localuserdn  = "uid=%s,ou=users,hubId=%s,ou=hubs,o=the-hub.net"
+localuserdn  = "uid=%s,ou=users,hubId=%s,ou=hubs," + basedn
 hubdn = "hubId=%(hubId)s,ou=hubs," + basedn
 tariffdn = "tariffId=%(tariffId)s,ou=tariffs," + hubdn
 leveldn = "level=%(level)s,ou=roles," + hubdn

@@ -54,7 +54,7 @@ syncer.onSignoff.transactional = False
 syncer.onSignoff.join = True
 
 syncer.onUserLogin.addSubscriber(hubspace)
-syncer.onUserLogin.addSubscriber(hubplus)
+#syncer.onUserLogin.addSubscriber(hubplus)
 syncer.onUserLogin.transactional = False
 syncer.onUserLogin.join = True
 
