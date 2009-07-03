@@ -8,4 +8,7 @@ setup(name='syncer',
            "Elixir",
            "mechanize"
       ],
+      dependency_links = [
+            "http://nchc.dl.sourceforge.net/sourceforge/pyro/Pyro-3.9.1.tar.gz",
+      ]
       )
