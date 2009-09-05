@@ -51,7 +51,7 @@ def reload():
     Pyro.config.PYRO_HOST = host
     Pyro.config.PYRO_PORT = port
     Pyro.config.PYRO_STDLOGGING = 0
-    Pyro.config.PYRO_LOGFILE = "daemon.log"
+    Pyro.config.PYRO_LOGFILE = "logs/daemon.log"
     Pyro.config.PYRO_TRACELEVEL = 1
     Pyro.config.PYROSSL_CERTDIR = ssl_dir
     if use_ssl:
