@@ -91,6 +91,10 @@ class Proxy(object):
         return self._conn.search_s(*args, **kw)
 
     @dumpcall
+    def rename_s(self, *args, **kw):
+        return self._conn.rename_s(*args, **kw)
+
+    @dumpcall
     def add_s(self, *args, **kw):
         """
         """
@@ -240,7 +244,9 @@ class LDAPWriter(bases.SubscriberBase):
         conn = self.conn
         udata = dict(udata)
         globaluser_attrs = set(globaluser_all_attrs).intersection(udata.keys())
+        change_in_uid = 'uid' in udata
         if globaluser_attrs:
+            if change_in_uid: globaluser_attrs.remove('uid')
             for k in globaluser_attrs:
                 v = udata[k]
                 mod_list = [(ldap.MOD_DELETE, k, None), (ldap.MOD_ADD, k, v)]
@@ -250,6 +256,7 @@ class LDAPWriter(bases.SubscriberBase):
                     conn.modify_s(globaldn, mod_list[-1:])
         localuser_attrs = set(localuser_all_attrs).intersection(udata.keys())
         if localuser_attrs:
+            if change_in_uid: localuser_attrs.remove('uid')
             localdn = getLocalUserDNFromUid(conn, username)
             for k in localuser_attrs:
                 v = udata[k]
@@ -258,9 +265,33 @@ class LDAPWriter(bases.SubscriberBase):
                     conn.modify_s(localdn, mod_list)
                 except ldap.NO_SUCH_ATTRIBUTE, err:
                     conn.modify_s(localdn, mod_list[-1:])
+
+        if change_in_uid:
+            conn.rename_s(globaldn, "uid=%s" % udata['uid'])
+            conn.rename_s(localdn,  "uid=%s" % udata['uid'])
+            newglobaldn = globaluserdn % udata['uid']
+            newlocaldn = "uid=%s,%s" % (udata['uid'], localdn.split(',',1)[1])
+            self.fixUserGlobalDNRefs(newlocaldn, globaldn, newglobaldn)
         return True
     onUserMod.block = True
     onUserMod.rollback = rollback
+
+    def fixUserGlobalDNRefs(self, localdn, olddn, newdn):
+        conn = self.conn
+        # fix roles for new dn
+        hubdn = localdn.split(',', 2)[-1]
+        logger.debug(hubdn)
+        rolesdn = "ou=roles," + hubdn
+        logger.debug(rolesdn)
+        levels = conn.search_s(rolesdn, ldap.SCOPE_ONELEVEL, "objectClass=hubLocalRole", ['member'])
+        for level in levels:
+            dn = level[0]
+            logger.debug(dn)
+            members = level[1]['member']
+            if olddn in members:
+                logger.debug("true")
+                mod_list = [(ldap.MOD_DELETE, "member", olddn), (ldap.MOD_ADD, "member", newdn)]
+                conn.modify_s(dn, mod_list)
 
     @ldapfriendly
     def onUserDel(self, username):

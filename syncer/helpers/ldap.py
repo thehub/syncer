@@ -141,7 +141,7 @@ class RoleMapping(AttributeMapping):
 
 class UidMapping(AttributeMapping):
     def _toLDAP(self, o, in_attrs, out_attrs):
-        user_name = (o and getattr(o, self.app_attrs[0])) or in_attrs[self.app_attrs[0]]
+        user_name = in_attrs.get(self.app_attrs[0]) or (o and getattr(o, self.app_attrs[0]))
         out_attrs['uid'] = user_name
         out_attrs['hubUserReference'] = username2globaluserdn(user_name)
     def _toApp(self, o, in_attrs, out_attrs):
