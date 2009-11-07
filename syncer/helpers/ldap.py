@@ -149,7 +149,7 @@ class UidMapping(AttributeMapping):
 
 class PasswordMapping(AttributeMapping):
     def _toLDAP(self, o, in_attrs, out_attrs):
-        hexed_pass = in_attrs[self.app_attrs[0]] or (o and getattr(o, self.app_attrs[0]))
+        hexed_pass = in_attrs.get(self.app_attrs[0]) or (o and getattr(o, self.app_attrs[0]))
         out_attrs['userPassword'] = "{MD5}%s" % base64.b64encode(binascii.unhexlify(hexed_pass))
         out_attrs['sambaLMPassword'] = o.lanman_hash
         out_attrs['sambaNTPassword'] = o.nt_hash
