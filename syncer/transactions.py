@@ -22,7 +22,7 @@ max_tid = 1024 * 10
 class Transaction(Entity):
     time = Field(DateTime, default=now)
     state = Field(Integer, default=1) # 1: Running, 2: Complete, 3: Rolling back
-    owner = Field(Unicode) # unused should go
+    initiator = Field(Unicode)
     is_complete = Field(Boolean, default=False)
     event_name = Field(Unicode)
     args = Field(PickleType)
@@ -41,7 +41,7 @@ class DummyTransaction(object):
         self.__dict__.update(kw)
     def delete(self): pass
  
-def newTransaction(event, args, kw):
+def newTransaction(event, initiator, args, kw):
     if event.transactional:
         factory = Transaction
         trs = Transaction.query.filter(Transaction.time < (now() - datetime.timedelta(180)))
@@ -51,7 +51,7 @@ def newTransaction(event, args, kw):
             logger.info("Transaction %s is deleted" % t_id)
     else:
         factory = DummyTransaction
-    tr = factory(event_name=event.name, args=args, kw=kw, results={})
+    tr = factory(event_name=event.name, initiator=initiator, args=args, kw=kw, results={})
     return tr
 
 class RollbackData(Entity):

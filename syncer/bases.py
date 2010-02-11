@@ -73,11 +73,14 @@ class WebApp(SubscriberBase):
     onUserLogin.saveargs = onSignonSaveArgs
 
     def onSignon(self, u, p):
-        cookies = self.onUserLogin(u, p)
-        if 'authcookies' not in session:
-            session['authcookies'] = {self.name: cookies}
-        else:
-            session['authcookies'][self.name] = cookies
+        transaction = currentTransaction()
+        session = currentSession()
+        if transaction.initiator == self.name:
+            cookies = self.onUserLogin(u, p)
+            if 'authcookies' not in session:
+                session['authcookies'] = {self.name: cookies}
+            else:
+                session['authcookies'][self.name] = cookies
 
     onSignon.block = True
     onUserLogin.saveargs = onSignonSaveArgs
@@ -181,8 +184,8 @@ class Event(object):
             else:
                 th.start()
 
-    def __call__(self, app_name, sid, *args, **kw):
-        logger.info('Syncer publishing event: \"(%s)%s\"' % (app_name, self.name))
+    def __call__(self, initiator, sid, *args, **kw):
+        logger.info('Syncer publishing event: \"(%s)%s\"' % (initiator, self.name))
         args = [cPickle.loads(arg) for arg in args]
         kw = dict(((cPickle.loads(k), cPickle.loads(v)) for (k,v) in kw.items()))
         th_q = Queue()
@@ -193,7 +196,7 @@ class Event(object):
         
         with threading.Lock():
             session = transactions.session()
-            transaction = transactions.newTransaction(self, *self.argsfilterer(args, kw))
+            transaction = transactions.newTransaction(self, initiator, *self.argsfilterer(args, kw))
             if self.transactional:
                 session.add(transaction)
             session.commit()
@@ -201,11 +204,11 @@ class Event(object):
             logger.debug("Transaction (%s): Begin" % transaction.id)
 
         for subscriber in self.subscribers_s:
-            if app_name == subscriber.name: continue
-            self.runInThread(sid, transaction, subscriber, args, kw, th_q, True)
-            if errors.hasFailed(transaction.results):
-                __failed = True
-                break
+            if not initiator == subscriber.name or self.name == 'onSignon':
+                self.runInThread(sid, transaction, subscriber, args, kw, th_q, True)
+                if errors.hasFailed(transaction.results):
+                    __failed = True
+                    break
 
         results = copy.copy(transaction.results)
 
@@ -213,7 +216,7 @@ class Event(object):
             self.onFailure(transaction, th_q, args, kw)
         else:
             for subscriber in self.subscribers:
-                if not app_name == subscriber.name:
+                if not initiator == subscriber.name:
                     self.runInThread(sid, transaction, subscriber, args, kw, th_q)
             
             def thCleanup(transaction, th_q):
@@ -235,7 +238,7 @@ class Event(object):
 
         #print '========================================'
         #for (sid, session) in sessions.items():
-        #    print sid, session['username'], session['ldapconn']
+        #    print sid, session['username'], session
         #print results
         #print '========================================'
         return tr_id, results
