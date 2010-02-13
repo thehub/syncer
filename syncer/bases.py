@@ -8,6 +8,12 @@ import mechanize
 
 import errors, config, utils, transactions
 
+
+import cookielib
+import urllib
+import urllib2
+  
+
 picklables = (int, str, dict, tuple, list, Exception, float, long, set, bool, type(None))
 
 class SubscriberBase(object):
@@ -25,10 +31,10 @@ class WebApp(SubscriberBase):
         SubscriberBase.__init__(self, name, *args, **kw)
         self.domainname = domainname
         self.login_url = self.loginurl_tmpl % self.domainname
+        self.authcookies = []
 
     def makeHttpReq(self, url, formvars):
-        session = currentSession()
-        cj = session['authcookies'][self.name]
+        cj = self.authcookies
         params = urllib.urlencode(formvars)
         opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
         opener.addheaders = [("Content-type", "application/x-www-form-urlencoded"),
@@ -44,7 +50,23 @@ class WebApp(SubscriberBase):
     def onSignonSaveArgs(self, u, p, cookies):
         return (u, utils.masked, utils.masked)
 
+
     def onUserLogin(self, u, p, cookies=[]):
+        #import ipdb
+        #ipdb.set_trace()
+        login_dict = self.makeLoginDict(u, p)
+        post_data = urllib.urlencode(login_dict)
+        headers = {"User-agent": config.user_agent, 
+                   'Accept': 'text/html',
+                   'Host': self.domainname,
+                   'Content-type': "application/x-www-form-urlencoded"}
+        logger.debug("Opening URL: %s (%s)" % (self.login_url, config.user_agent))
+        req = urllib2.Request(self.login_url, post_data, headers)
+        logger.debug("Done Opening URL: %s (%s)" % (self.login_url, config.user_agent))
+        return
+       
+
+    def _onUserLogin(self, u, p, cookies=[]):
         """
         u: username
         p: password
@@ -52,7 +74,11 @@ class WebApp(SubscriberBase):
         Returns list of auth cookies
         """
         b = mechanize.Browser()
-        b.addheaders = [ ("User-agent", config.user_agent), ]
+        b.addheaders = [ ("User-agent", config.user_agent),
+                         ('Accept', 'text/html'),
+                         ('Host', self.domainname),
+                         ('Content-type', "application/x-www-form-urlencoded"),
+                         ]
         cj = b._ua_handlers['_cookies'].cookiejar
         for c in cookies:
             cj.set_cookie(c)
@@ -63,11 +89,16 @@ class WebApp(SubscriberBase):
         for form in forms:
             if set(login_dict.keys()).issubset(set([c.name for c in form.controls])):
                 nr = forms.index(form)
+                break
         b.select_form(nr=nr)
         for (k,v) in self.makeLoginDict(u, p).items():
             b[k] = v
         b.submit()
-        return [c for c in cj]
+        return cj
+
+    def onUserLogin(self, u, p, cookies=[]):
+        self.onUserLogin(u, p, cookies)
+        return True
 
     onUserLogin.block = True
     onUserLogin.saveargs = onSignonSaveArgs
@@ -76,25 +107,10 @@ class WebApp(SubscriberBase):
         transaction = currentTransaction()
         session = currentSession()
         if transaction.initiator == self.name:
-            cookies = self.onUserLogin(u, p)
-            if 'authcookies' not in session:
-                session['authcookies'] = {self.name: cookies}
-            else:
-                session['authcookies'][self.name] = cookies
+            self.authcookies = self._onUserLogin(u, p)
 
     onSignon.block = True
     onUserLogin.saveargs = onSignonSaveArgs
-
-    def onReceiveAuthcookies(self, appname, cookies):
-        if appname == self.name:
-            session = currentSession()
-            if 'authcookies' not in session:
-                session['authcookies'] = {appname: cookies}
-            else:
-                session['authcookies'][appname] = cookies
-            return True
-
-    onReceiveAuthcookies.block = True
 
 class Syncer(Pyro.core.ObjBase):
 

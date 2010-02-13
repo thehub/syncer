@@ -1,11 +1,15 @@
 import bases, utils, errors
 
 class HubSpace(bases.WebApp):
-
+    loginurl_tmpl = 'http://%s/public/login' # new
+    #loginurl_tmpl = 'http://%s/login' # old
+        
     def makeLoginDict(self, username, password):
        return dict (
             user_name = username,
-            password = password )
+            password = password, )
+
+    #def onLogout(self, username)
 
     def onUserAdd(self, username, udata):
         useradd_url = "http://%s/load_tab?section=addMember&object_id=1&object_type=User" % (self.domainname, username)

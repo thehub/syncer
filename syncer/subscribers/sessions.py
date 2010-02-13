@@ -9,7 +9,7 @@ class SessionKeeper(dict, bases.SubscriberBase):
         dict.__init__(self)
 
     def listActiveSession(self):
-        return ((sid, data['user']) for sid, data in self.items())
+        return self.items()
 
     def validate(self, sid):
         return bool(sid) and sid in self
@@ -17,16 +17,15 @@ class SessionKeeper(dict, bases.SubscriberBase):
     def destroyThisSession(self):
         del self[syncer_tls.sid]
 
-    def onSignon(self, username, *args, **kw):
+    def onSignon(self, *args, **kw):
         self.removeStaleSessions()
-        existing_session = self.getUserSession(username)
+        existing_session = None # TO BE CHANGED
         if existing_session:
-            logger.debug("using existing session for %s" % username)
             session = existing_session
         else:
-            logger.debug("creating new session for %s" % username)
+            logger.debug("creating new session")
             sid = syncer_tls.sid
-            newsession = dict (sid = sid, username = username)
+            newsession = dict (sid = sid)
             newsession['last_seen'] = datetime.datetime.now()
             session = newsession
             self[sid] = session
@@ -58,14 +57,6 @@ class SessionKeeper(dict, bases.SubscriberBase):
                     if visit_id not in self:
                         return visit_id
 
-    def onReceiveAuthcookies(self, appname, username, cookies):
-        cj = utils.create_cookiejar(cookies)
-        session = currentSession()
-        if not 'authcookies' in session:
-            session['authcookies'] = dict()
-        currentSession()['authcookies'][appname] = cj
-        currentSession()['username'] = username
-
     def removeStaleSessions(self):
         now = datetime.datetime.now()
         for (sid, session) in self.items():
@@ -74,7 +65,7 @@ class SessionKeeper(dict, bases.SubscriberBase):
                 del self[sid]
                 logger.info("session %s destroyed" % sid)
 
-    def getUserSession(self, username):
+    def getUserSession(self, username): # TODO To change to use appnames
         for session in self.values():
             if session.get('username',None) == username:
                 return session
