@@ -9,32 +9,40 @@ class HubSpace(bases.WebApp):
             user_name = username,
             password = password, )
 
+    def makeJsonReq(self, url, postdata):
+        """
+        postdata: dict
+        """
+        cj, content = self.makeHttpReq(url, postdata)
+        ret = json.loads(content)
+        if ret['error']:
+            errors.raiseError(ret['error'])
+        return ret
+
     #def onLogout(self, username)
 
-    def onUserAdd(self, username, udata):
-        useradd_url = "http://%s/load_tab?section=addMember&object_id=1&object_type=User" % (self.domainname, username)
-        d = self.readForm(usermod_url)
-
-        save_url = "http://%s/create_user" % self.domainname
-        d.update(udata)
-        d['id'] = username
-        self.makeHttpReq(save_url, d)
+    def onUserAdd(self, id):
+        url = "http://%s/onuseradd" % (self.domainname)
+        d = dict(id = id)
+        self.makeJsonReq(url, d)
         return True
 
-    def onUserDel(self, username):
-        userdel_url = "http://%s/delete_user" % (self.domainname)
-        d = dict (username = username)
-        self.makeHttpReq(userdel_url, d)
-        return True
-       
     def onUserMod(self, username, udata):
-        usermod_url = "http://%s/get_widget?widget_name=memberProfileEdit&object_type=User&object_id=%s" % (self.domainname, username)
-        d = self.readForm(usermod_url)
-
-        save_url = "http://%s/sync_memberProfileEdit" % self.domainname
-        d.update(udata)
-        d['id'] = username
-        self.makeHttpReq(save_url, d)
+        url = "http://%s/onusermod" % (self.domainname)
+        d = dict(id = id)
+        self.makeJsonReq(url, d)
         return True
 
     onUserMod.block = True
+    
+    def onLocationAdd(self, username, udata):
+        url = "http://%s/onlocationadd " % (self.domainname)
+        d = dict(id = id)
+        self.makeJsonReq(url, d)
+        return True
+
+    def onLocationRename(self, username, udata):
+        url = "http://%s/onlocatiorename" % (self.domainname)
+        d = dict(id = id)
+        self.makeJsonReq(url, d)
+        return True

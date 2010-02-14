@@ -8,13 +8,17 @@ import mechanize
 
 import errors, config, utils, transactions
 
-
 import cookielib
 import urllib
 import urllib2
   
-
 picklables = (int, str, dict, tuple, list, Exception, float, long, set, bool, type(None))
+
+try:
+    import json
+except ImportError:
+    import simplejson as json
+
 
 class SubscriberBase(object):
     def __init__(self, name):
@@ -40,7 +44,7 @@ class WebApp(SubscriberBase):
         opener.addheaders = [("Content-type", "application/x-www-form-urlencoded"),
             ("Accept", "text/plain"), ("user-agent", config.user_agent)]
         logger.debug("Opening URL: %s (%s)" % (url, config.user_agent))
-        logger.debug("Headers sent: %s" % opener.addheaders)
+        #logger.debug("Headers sent: %s" % opener.addheaders)
         r = opener.open(url, params)
         content = r.read()
         r.close()
@@ -54,16 +58,21 @@ class WebApp(SubscriberBase):
     def onUserLogin(self, u, p, cookies=[]):
         #import ipdb
         #ipdb.set_trace()
-        login_dict = self.makeLoginDict(u, p)
-        post_data = urllib.urlencode(login_dict)
-        headers = {"User-agent": config.user_agent, 
-                   'Accept': 'text/html',
-                   'Host': self.domainname,
-                   'Content-type': "application/x-www-form-urlencoded"}
-        logger.debug("Opening URL: %s (%s)" % (self.login_url, config.user_agent))
-        req = urllib2.Request(self.login_url, post_data, headers)
-        logger.debug("Done Opening URL: %s (%s)" % (self.login_url, config.user_agent))
-        return
+        #login_dict = self.makeLoginDict(u, p)
+        #post_data = urllib.urlencode(login_dict)
+        #headers = {"User-agent": config.user_agent, 
+        #           'Accept': 'text/html',
+        #           'Host': self.domainname,
+        #           'Content-type': "application/x-www-form-urlencoded"}
+        #logger.debug("Opening URL: %s (%s)" % (self.login_url, config.user_agent))
+        #req = urllib2.Request(self.login_url, post_data, headers)
+        #logger.debug("Done Opening URL: %s (%s)" % (self.login_url, config.user_agent))
+        cj, content = self._onUserLogin(u, p, cookies)
+        # return True
+        return [c for c in cj]
+
+    onUserLogin.block = True
+    onUserLogin.saveargs = onSignonSaveArgs
        
 
     def _onUserLogin(self, u, p, cookies=[]):
@@ -96,12 +105,7 @@ class WebApp(SubscriberBase):
         b.submit()
         return cj
 
-    def onUserLogin(self, u, p, cookies=[]):
-        self.onUserLogin(u, p, cookies)
-        return True
 
-    onUserLogin.block = True
-    onUserLogin.saveargs = onSignonSaveArgs
 
     def onSignon(self, u, p):
         transaction = currentTransaction()
