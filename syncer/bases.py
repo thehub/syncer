@@ -14,12 +14,6 @@ import urllib2
   
 picklables = (int, str, dict, tuple, list, Exception, float, long, set, bool, type(None))
 
-try:
-    import json
-except ImportError:
-    import simplejson as json
-
-
 class SubscriberBase(object):
     def __init__(self, name):
         self.name = name.replace(" ", "_")

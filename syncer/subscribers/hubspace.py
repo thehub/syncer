@@ -1,5 +1,11 @@
 import bases, utils, errors
 
+try:
+    import json
+except ImportError:
+    import simplejson as json
+
+
 class HubSpace(bases.WebApp):
     loginurl_tmpl = 'http://%s/public/login' # new
     #loginurl_tmpl = 'http://%s/login' # old
