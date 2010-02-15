@@ -24,10 +24,10 @@ class HubPlus(bases.WebApp):
         print xs
         return xs
 
-    def onUserCreate(self, username, udata=None):
-        cj,result = self.post('on_user_create', username=username)
+    def onUserAdd(self, username, udata=None):
+        cj,result = self.post('on_user_add', username=username)
         return True
-    onUserCreate.block = True
+    onUserAdd.block = True
 
     def onUserMod(self, username, udata=None):
         cj,result = self.post('on_user_change', username=username)

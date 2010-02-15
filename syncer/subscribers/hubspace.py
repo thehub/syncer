@@ -27,13 +27,14 @@ class HubSpace(bases.WebApp):
         self.makeJsonReq(url, d)
         return True
 
-    def onUserMod(self, username, udata):
+    def onUserMod(self,id):
+
         url = "http://%s/onusermod" % (self.domainname)
         d = dict(id = id)
         self.makeJsonReq(url, d)
         return True
 
-    onUserMod.block = True
+    onUserMod.block = False
     
     def onLocationAdd(self, username, udata):
         url = "http://%s/onlocationadd " % (self.domainname)

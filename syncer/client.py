@@ -12,6 +12,7 @@ import errors, config
 
 class SyncerClient(object):
     def __init__(self, appname, sessiongetter,client_disabled=-1,syncer_uri=-1):
+
         if client_disabled == -1:
             client_disabled=config.client_disabled
         if syncer_uri == -1:
