@@ -24,22 +24,22 @@ class HubPlus(bases.WebApp):
         print xs
         return xs
 
-    def onUserAdd(self, username, udata=None):
-        cj,result = self.post('on_user_add', username=username)
+    def onUserAdd(self, id, udata=None):
+        cj,result = self.post('on_user_add', id=id)
         return True
-    onUserAdd.block = True
+    onUserAdd.block = False
 
-    def onUserMod(self, username, udata=None):
-        cj,result = self.post('on_user_change', username=username)
+    def onUserMod(self, id, udata=None):
+        cj,result = self.post('on_user_change', id=id)
         return True
     onUserMod.block = True
 
-    def onGroupJoin(self, username, group_id, data=None) :
-        cj,result = self.post('on_group_join',username=username,group_id=group_id)
+    def onGroupJoin(self, user_id, group_id, data=None) :
+        cj,result = self.post('on_group_join',user_id=user_id,group_id=group_id)
         return True
-    onGroupJoin.block = True
+    onGroupJoin.block = False
 
-    def onGroupLeave(self, username, group_id, data=None) :
-        cj,result = self.post('on_group_leave',username=username,group_id=group_id)
+    def onGroupLeave(self, user_id, group_id, data=None) :
+        cj,result = self.post('on_group_leave',user_id=user_id,group_id=group_id)
         return True
-    onGroupLeave.block = True
+    onGroupLeave.block = False

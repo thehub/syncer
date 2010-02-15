@@ -53,3 +53,4 @@ class SyncerClient(object):
 
     def __getattr__(self, eventname):
         return functools.partial(self.publishEvent, eventname, self.getSyncerToken())
+

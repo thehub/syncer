@@ -12,7 +12,7 @@ import cookielib
 import urllib
 import urllib2
   
-picklables = (int, str, dict, tuple, list, Exception, float, long, set, bool, type(None))
+picklables = (int, str, dict, tuple, list, float, long, set, bool, type(None))
 
 class SubscriberBase(object):
     def __init__(self, name):
@@ -61,7 +61,7 @@ class WebApp(SubscriberBase):
         #logger.debug("Opening URL: %s (%s)" % (self.login_url, config.user_agent))
         #req = urllib2.Request(self.login_url, post_data, headers)
         #logger.debug("Done Opening URL: %s (%s)" % (self.login_url, config.user_agent))
-        cj, content = self._onUserLogin(u, p, cookies)
+        cj = self._onUserLogin(u, p, cookies)
         # return True
         return [c for c in cj]
 

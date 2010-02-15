@@ -29,7 +29,10 @@ class TransactionMgr(bases.SubscriberBase):
                 continue
             res = list(Transaction.query.filter_by(id=t_id))
             if res:
-                res[0].delete()
+                try:
+                    res[0].delete()
+                except Exception, err:
+                    print err
             else:
                 logger.error("No such transaction: %s" % t_id)
                 ret = errors.syncer_transaction_failed
