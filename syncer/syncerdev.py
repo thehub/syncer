@@ -31,7 +31,8 @@ transactionmgr.ignore_old_failures = True
 hubspace = subscribers.hubspace.HubSpace("hubspace", "newdev.the-hub.net")
 hubspace.ignore_old_failures = True # TODO
 
-hubplus = subscribers.hubplus.HubPlus("hubplus", "plus.the-hub.net")
+hubplus = subscribers.hubplus.HubPlus("hubplus", "plusdev.the-hub.net")
+#hubplus = subscribers.hubplus.HubPlus("hubplus", "plus.the-hub.net")
 hubplus.ignore_old_failures = True # TODO
 
 # Transactions
@@ -61,6 +62,7 @@ syncer.onUserLogin.join = True
 syncer.onUserAdd.addSubscriber(sessionkeeper)
 #syncer.onUserAdd.addSubscriber(ldapwriter)
 syncer.onUserAdd.addSubscriber(hubplus)
+syncer.onUserAdd.addSubscriber(hubspace)
 syncer.onUserAdd.join = False
 
 syncer.onUserMod.addSubscriber(sessionkeeper)

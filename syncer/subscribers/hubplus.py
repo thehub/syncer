@@ -2,8 +2,6 @@ import bases, utils, errors
 
 import simplejson as json
 
-# XXX following shouldn't be hardwired in
-url_base = 'http://plusdev-app.the-hub.net:8000/synced/'
 
 class HubPlus(bases.WebApp):
 
@@ -20,7 +18,9 @@ class HubPlus(bases.WebApp):
         # to-do
         # handle if error comes back ({'OK':False,'msg':'error message'})
         print "received %s" % event
-        xs = self.makeHttpReq(url_base+event+'/', {'json':json.dumps(kwargs)})
+        url = 'http://%s/synced/%s/' % (self.domainname, event)
+        print "url is %s " % url
+        xs = self.makeHttpReq(url, {'json':json.dumps(kwargs)})
         print xs
         return xs
 
@@ -43,3 +43,6 @@ class HubPlus(bases.WebApp):
         cj,result = self.post('on_group_leave',user_id=user_id,group_id=group_id)
         return True
     onGroupLeave.block = False
+
+    #def onSignon(self, *args, **kw): return
+    #onSignon.block = True

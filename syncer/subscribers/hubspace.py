@@ -30,26 +30,27 @@ class HubSpace(bases.WebApp):
     def onUserAdd(self, id):
         url = "http://%s/onuseradd" % (self.domainname)
         d = dict(id = id)
-        self.makeJsonReq(url, d)
+        print "hubspace heard onUserAdd : %s" % d
+        print self.makeJsonReq(url, d)
         return True
 
     def onUserMod(self,id):
-
         url = "http://%s/onusermod" % (self.domainname)
         d = dict(id = id)
-        self.makeJsonReq(url, d)
+        print "hubspace heard onUserMod : %s" % d
+        print self.makeJsonReq(url, d)
         return True
 
-    onUserMod.block = False
-    
-    def onLocationAdd(self, username, udata):
+    def onLocationAdd(self, id):
         url = "http://%s/onlocationadd " % (self.domainname)
         d = dict(id = id)
-        self.makeJsonReq(url, d)
+        print "hubspace heard onLocationAdd : %s" % d
+        print self.makeJsonReq(url, d)
         return True
 
-    def onLocationRename(self, username, udata):
+    def onLocationRename(self, new_name, old_name):
         url = "http://%s/onlocatiorename" % (self.domainname)
-        d = dict(id = id)
-        self.makeJsonReq(url, d)
+        d = dict(new_name = new_name, old_name = old_name)
+        print "hubspace heard onLocationRename : %s" % d
+        print self.makeJsonReq(url, d)
         return True

@@ -2,6 +2,12 @@ import datetime, os
 
 import bases, utils, errors, config
 
+def removeCurrentSession(*args, **kw):
+    session = currentSession()
+    sid = session.get('sid', None)
+    if sid and sid in sessions:
+        del sessions[sid]
+    
 class SessionKeeper(dict, bases.SubscriberBase):
 
     def __init__(self, *args, **kw):
@@ -18,19 +24,25 @@ class SessionKeeper(dict, bases.SubscriberBase):
         del self[syncer_tls.sid]
 
     def onSignon(self, *args, **kw):
+        print 'begin onSignon', `self.items()`
         self.removeStaleSessions()
-        existing_session = None # TO BE CHANGED
+        username = currentTransaction().initiator
+        existing_session = self.getUserSession(username)
         if existing_session:
             session = existing_session
         else:
             logger.debug("creating new session")
+            print `syncer_tls.sid`
             sid = syncer_tls.sid
             newsession = dict (sid = sid)
             newsession['last_seen'] = datetime.datetime.now()
+            newsession['username'] = username
             session = newsession
             self[sid] = session
+        print "end onSignon", `self.items()`    
         return session['sid']
     onSignon.block = True
+    onSignon.rollback = removeCurrentSession
 
     def onSignoff(self):
         sid = syncer_tls.sid
@@ -40,6 +52,7 @@ class SessionKeeper(dict, bases.SubscriberBase):
             logger.warn("session %s does not exist, possibly user has signed out from elsewhere" % sid)
 
     def onAnyEvent(self, *args, **kw):
+
         sid = syncer_tls.sid
         if not self.validate(sid):
             errors.raiseError(errors.sessionnotfound)
@@ -70,8 +83,6 @@ class SessionKeeper(dict, bases.SubscriberBase):
             if session.get('username',None) == username:
                 return session
         return None
-
-    onAnyEvent.block = True
 
     def __str__(self):
         return "<sessions: %s>" % super(self.__class__, self).__str__()

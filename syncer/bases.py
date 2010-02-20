@@ -29,15 +29,17 @@ class WebApp(SubscriberBase):
         SubscriberBase.__init__(self, name, *args, **kw)
         self.domainname = domainname
         self.login_url = self.loginurl_tmpl % self.domainname
-        self.authcookies = []
+        self.authcookies = cookielib.CookieJar()
 
     def makeHttpReq(self, url, formvars):
         cj = self.authcookies
         params = urllib.urlencode(formvars)
         opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
-        opener.addheaders = [("Content-type", "application/x-www-form-urlencoded"),
+        opener.addheaders = [("Content-type", "application/x-www-form-urlencoded"), ('Host', self.domainname),
             ("Accept", "text/plain"), ("user-agent", config.user_agent)]
-        logger.debug("Opening URL: %s (%s)" % (url, config.user_agent))
+        
+        username = currentSession().get('username', 'anonymous')
+        logger.debug("Opening URL: %s (%s)" % (url, username))
         #logger.debug("Headers sent: %s" % opener.addheaders)
         r = opener.open(url, params)
         content = r.read()
@@ -52,17 +54,8 @@ class WebApp(SubscriberBase):
     def onUserLogin(self, u, p, cookies=[]):
         #import ipdb
         #ipdb.set_trace()
-        #login_dict = self.makeLoginDict(u, p)
-        #post_data = urllib.urlencode(login_dict)
-        #headers = {"User-agent": config.user_agent, 
-        #           'Accept': 'text/html',
-        #           'Host': self.domainname,
-        #           'Content-type': "application/x-www-form-urlencoded"}
-        #logger.debug("Opening URL: %s (%s)" % (self.login_url, config.user_agent))
-        #req = urllib2.Request(self.login_url, post_data, headers)
-        #logger.debug("Done Opening URL: %s (%s)" % (self.login_url, config.user_agent))
-        cj = self._onUserLogin(u, p, cookies)
-        # return True
+        # cookies unused as if we pass existing client cookies form rendered are different, need to find why?
+        cj = self._onUserLogin(u, p)
         return [c for c in cj]
 
     onUserLogin.block = True
@@ -76,6 +69,7 @@ class WebApp(SubscriberBase):
         cookies: list of cookielib.Cookie instances. These cookies would be passed during login attempt.
         Returns list of auth cookies
         """
+
         b = mechanize.Browser()
         b.addheaders = [ ("User-agent", config.user_agent),
                          ('Accept', 'text/html'),
@@ -85,7 +79,9 @@ class WebApp(SubscriberBase):
         cj = b._ua_handlers['_cookies'].cookiejar
         for c in cookies:
             cj.set_cookie(c)
+
         logger.debug("URL open: %s" % self.login_url)
+
         b.open(self.login_url)
         login_dict = self.makeLoginDict(u, p)
         forms = list(b.forms())
@@ -99,13 +95,12 @@ class WebApp(SubscriberBase):
         b.submit()
         return cj
 
-
-
-    def onSignon(self, u, p):
+    def onSignon(self, u, p, cookies=[]):
         transaction = currentTransaction()
         session = currentSession()
         if transaction.initiator == self.name:
             self.authcookies = self._onUserLogin(u, p)
+            print `self.authcookies`
 
     onSignon.block = True
     onUserLogin.saveargs = onSignonSaveArgs
@@ -207,7 +202,7 @@ class Event(object):
 
         if not sid:
             sid = sessions.genVisitId(self.name, args, kw)
-        
+
         with threading.Lock():
             session = transactions.session()
             transaction = transactions.newTransaction(self, initiator, *self.argsfilterer(args, kw))
@@ -240,7 +235,6 @@ class Event(object):
                 session.commit()
                 session.close()
                 #transactions.session.close()
-                logger.debug("dropping session")
 
             if self.join:
                 print "I'm asked to wait"
@@ -251,8 +245,7 @@ class Event(object):
 
 
         #print '========================================'
-        #for (sid, session) in sessions.items():
-        #    print sid, session['username'], session
+        #print sessions
         #print results
         #print '========================================'
         return tr_id, results
@@ -266,28 +259,29 @@ class Event(object):
             eventname = self.name
             failed_apps = dict ()
 
-            if self.transactional:
-                rollback_candidates = [s for s in self.subscribers_s + self.subscribers if not s.ignore_old_failures and s.name in results]
-                logger.debug("Begin rollback")
+            #rollback_candidates = [s for s in self.subscribers_s + self.subscribers if not s.ignore_old_failures and s.name in results]
+            rollback_candidates = [s for s in self.subscribers_s + self.subscribers if s.name in results]
+            logger.debug("Begin rollback")
 
-                for subscriber in rollback_candidates:
+            for subscriber in rollback_candidates:
 
-                    f = getattr(subscriber, eventname, getattr(subscriber, "onAnyEvent", None))
-                    rollback = getattr(f, "rollback", None)
-                    if rollback:
-                        logger.debug("ateempting rollback for %s" % subscriber.name)
-                        try:
-                            rollback(subscriber, *args, **kw)
-                        except Exception, err:
-                            logger.error("Rollback failed for %s:%s (%s)" % (subscriber.name, eventname, err))
+                f = getattr(subscriber, eventname, getattr(subscriber, "onAnyEvent", None))
+                rollback = getattr(f, "rollback", None)
+                if rollback:
+                    logger.debug("ateempting rollback for %s" % subscriber.name)
+                    try:
+                        rollback(subscriber, *args, **kw)
+                    except Exception, err:
+                        msg = "Rollback failed for %s:%s (%s)" % (subscriber.name, eventname, err)
+                        logger.exception(msg)
 
-                    if errors.isError(results[subscriber.name]):
-                        failed_apps[subscriber.name] = results[subscriber.name]
-                        if subscriber.adminemail:
-                            recipient = subscriber.adminemail
-                            appname = subscriber.name
-                            err = utils.sendAlert(locals())
-                            if err: logger.warn(err)
+                if errors.isError(results[subscriber.name]):
+                    failed_apps[subscriber.name] = results[subscriber.name]
+                    if subscriber.adminemail:
+                        recipient = subscriber.adminemail
+                        appname = subscriber.name
+                        err = utils.sendAlert(locals())
+                        if err: logger.warn(err)
 
         try:
             transaction.delete()

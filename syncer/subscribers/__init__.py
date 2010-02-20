@@ -8,4 +8,4 @@ for mod in all_mods:
         print "Subscriber found: %s" % mod
         __all__.append(mod)
     except Exception, err:
-        print "warning: skipping", mod
+        print "warning: skipping", mod, str(err)
