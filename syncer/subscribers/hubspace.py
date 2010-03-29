@@ -7,8 +7,8 @@ except ImportError:
 
 
 class HubSpace(bases.WebApp):
-    loginurl_tmpl = 'http://%s/public/login' # new
-    #loginurl_tmpl = 'http://%s/login' # old
+    #loginurl_tmpl = 'http://%s/public/login' # new
+    loginurl_tmpl = 'http://%s/login' # old
         
     def makeLoginDict(self, username, password):
        return dict (

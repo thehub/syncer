@@ -28,11 +28,10 @@ utils.pushToBuiltins("sessions", sessionkeeper)
 transactionmgr = subscribers.trmgr.TransactionMgr("transactionmgr")
 transactionmgr.ignore_old_failures = True
 
-hubspace = subscribers.hubspace.HubSpace("hubspace", "newdev.the-hub.net")
+hubspace = subscribers.hubspace.HubSpace("hubspace", "members.the-hub.net")
 hubspace.ignore_old_failures = True # TODO
 
-hubplus = subscribers.hubplus.HubPlus("hubplus", "plusdev.the-hub.net")
-#hubplus = subscribers.hubplus.HubPlus("hubplus", "plus.the-hub.net")
+hubplus = subscribers.hubplus.HubPlus("hubplus", "plus.the-hub.net")
 hubplus.ignore_old_failures = True # TODO
 
 # Transactions

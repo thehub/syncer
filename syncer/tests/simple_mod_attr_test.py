@@ -4,8 +4,8 @@ import syncer.client
 
 session = dict ()
 sessiongetter = lambda: session
-u = "salfield"
-p = "blablablub2"
+u = "shon"
+p = "123"
 syncerclient = syncer.client.SyncerClient("hubspace", sessiongetter)
 
 t_id, res = syncerclient.onSignon(u, p, {})
@@ -15,6 +15,5 @@ if syncerclient.isSuccessful(res):
 else:
     sys.exit(1)
 
-udata = dict(title='Mr.')
-res = syncerclient.onUserMod('salfield',1,udata.items())
+print syncerclient.onUserMod(1)
 print 'done'

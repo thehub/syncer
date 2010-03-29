@@ -282,10 +282,3 @@ class Event(object):
                         appname = subscriber.name
                         err = utils.sendAlert(locals())
                         if err: logger.warn(err)
-
-        try:
-            transaction.delete()
-            transactions.commit()
-            transactions.session.close()
-        except Exception, err:
-            logger.warn("TODO %s" % err)
